@@ -188,10 +188,15 @@ async function startServer() {
     }
   });
 
-  app.delete('/api/history', (_req, res) => {
-    sharedHistory = [];
+  app.delete('/api/history', (req, res) => {
+    const id = (req.query?.id || req.body?.id) as string | undefined;
+    if (id) {
+      sharedHistory = sharedHistory.filter(h => h && h.id !== id);
+    } else {
+      sharedHistory = [];
+    }
     saveHistoryToFile();
-    res.json({ success: true, history: [] });
+    res.json({ success: true, history: sharedHistory });
   });
 
   // Webhook fallback proxy endpoint

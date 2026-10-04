@@ -2940,10 +2940,10 @@
             return `${h}:${m} ${ampm} PHT`;
         }
 
-        // Debounced Firestore history sync to prevent exhausting write streams
+        // Debounced Firestore history sync to keep all devices synchronized
         let saveHistoryTimeout = null;
         let isSavingHistory = false;
-        function saveHistoryToCloud(historyList) {
+        function saveHistoryToCloud(historyList, isAuthoritative = false) {
             if (!db) return;
             clearTimeout(saveHistoryTimeout);
             saveHistoryTimeout = setTimeout(async () => {
@@ -2961,25 +2961,28 @@
                         answers: Array.isArray(h?.answers) ? h.answers.map(a => typeof a === 'string' ? a : (a?.data || '')) : []
                     }));
 
-                    // Read current Firestore document to merge so no other user's solves get dropped
                     let finalHistory = cleanList;
-                    try {
-                        const snap = await docRef.get();
-                        if (snap.exists && Array.isArray(snap.data().solverHistory)) {
-                            const cloudHistory = snap.data().solverHistory;
-                            const map = new Map();
-                            // Keep cloud history
-                            cloudHistory.forEach(item => {
-                                if (item && item.id) map.set(item.id, item);
-                            });
-                            // Merge/update with cleanList
-                            cleanList.forEach(item => {
-                                if (item && item.id) map.set(item.id, item);
-                            });
-                            finalHistory = Array.from(map.values());
+
+                    // Only do non-destructive merge when adding new solves; NEVER resurrect deleted items during authoritative updates
+                    if (!isAuthoritative && cleanList.length > 0) {
+                        try {
+                            const snap = await docRef.get();
+                            if (snap.exists && Array.isArray(snap.data().solverHistory)) {
+                                const cloudHistory = snap.data().solverHistory;
+                                const currentCloudIds = new Set(cloudHistory.map(item => item && item.id).filter(Boolean));
+                                
+                                // Only find newly added items from cleanList that are not yet in cloudHistory
+                                const newItems = cleanList.filter(item => item && item.id && !currentCloudIds.has(item.id));
+                                
+                                if (newItems.length > 0) {
+                                    finalHistory = [...newItems, ...cloudHistory];
+                                } else {
+                                    finalHistory = cleanList;
+                                }
+                            }
+                        } catch (e) {
+                            console.warn("Could not read current cloud history for merge, using cleanList:", e);
                         }
-                    } catch (e) {
-                        console.warn("Could not read current cloud history for merge, using cleanList:", e);
                     }
 
                     finalHistory = pruneSolverHistory(finalHistory);
@@ -2990,9 +2993,9 @@
                 } catch (e) {
                     console.warn("Could not save solver history to Firebase:", e?.message || e);
                 } finally {
-                    setTimeout(() => { isSavingHistory = false; }, 400);
+                    setTimeout(() => { isSavingHistory = false; }, 300);
                 }
-            }, 300);
+            }, isAuthoritative ? 0 : 300);
         }
 
         // Automatically prune solver history: once daily reset hits (e.g. 10:00 PM),
@@ -3074,7 +3077,8 @@
                 if (res.ok) {
                     const data = await res.json();
                     if (data && Array.isArray(data.history)) {
-                        mergeSolverHistory(data.history);
+                        solverHistory = pruneSolverHistory(data.history);
+                        renderSolverHistory();
                     }
                 }
             } catch (e) {
@@ -4406,15 +4410,25 @@
             solverHistory = [];
             renderSolverHistory();
 
-            // Clear in Firebase Firestore (debounced)
-            saveHistoryToCloud([]);
+            // Clear directly in Firebase Firestore across all devices
+            if (db) {
+                try {
+                    const docRef = db.collection('config').doc('appSettings');
+                    await docRef.set({ solverHistory: [] }, { merge: true });
+                } catch (e) {
+                    console.warn("Could not clear solver history in Firestore:", e);
+                    saveHistoryToCloud([], true);
+                }
+            } else {
+                saveHistoryToCloud([], true);
+            }
 
-            // Clear on server
+            // Clear on server endpoint
             try {
                 await fetch('/api/history', { method: 'DELETE' });
             } catch (e) {}
 
-            showToast("Solver history cleared in Firebase", "success", 2000);
+            showToast("Solver history cleared across all devices", "success", 2000);
         }
 
         async function clearSolverHistory() {
@@ -4452,25 +4466,36 @@
             closeDeleteHistoryModal();
             if (!id) return;
 
+            // 1. Remove from local array and update UI immediately
             solverHistory = solverHistory.filter(h => h.id !== id);
             renderSolverHistory();
 
-            // Save updated list in Firebase Firestore (debounced)
-            saveHistoryToCloud(solverHistory);
-
-            // Sync updated list to server
-            try {
-                await fetch('/api/history', { method: 'DELETE' });
-                if (solverHistory.length > 0) {
-                    await fetch('/api/history', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: safeStringify({ history: solverHistory })
-                    });
+            // 2. Direct authoritative write to Firebase Firestore (instantly notifies other devices via onSnapshot)
+            if (db) {
+                try {
+                    const docRef = db.collection('config').doc('appSettings');
+                    const snap = await docRef.get();
+                    if (snap.exists && Array.isArray(snap.data().solverHistory)) {
+                        const cloudHistory = snap.data().solverHistory;
+                        const filtered = cloudHistory.filter(item => item && item.id !== id);
+                        await docRef.set({ solverHistory: filtered }, { merge: true });
+                    } else {
+                        await docRef.set({ solverHistory: solverHistory }, { merge: true });
+                    }
+                } catch (e) {
+                    console.warn("Could not delete solve directly from Firestore:", e);
+                    saveHistoryToCloud(solverHistory, true);
                 }
+            } else {
+                saveHistoryToCloud(solverHistory, true);
+            }
+
+            // 3. Sync deletion to server endpoint for multi-device sync
+            try {
+                await fetch('/api/history?id=' + encodeURIComponent(id), { method: 'DELETE' });
             } catch (e) {}
 
-            showToast("Solve entry deleted", "info", 2000);
+            showToast("Solve entry deleted across all devices", "info", 2000);
         }
 
         async function deleteHistoryEntry(id) {
