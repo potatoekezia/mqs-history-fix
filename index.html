@@ -2899,6 +2899,47 @@
             return changed;
         }
 
+        function getDailyResetTimestamps(cfg = dailyResetConfig) {
+            const h = Number(cfg?.hour) || 12;
+            let hour24 = h % 12;
+            if (String(cfg?.ampm || 'AM').toUpperCase() === 'PM') hour24 += 12;
+            const minute = Number(cfg?.minute) || 0;
+
+            const now = Date.now();
+            const phtOffsetMs = 8 * 3600 * 1000;
+
+            const dNow = new Date(now);
+            const utcMs = now + (dNow.getTimezoneOffset() * 60000);
+            const phtDate = new Date(utcMs + phtOffsetMs);
+
+            const year = phtDate.getFullYear();
+            const month = phtDate.getMonth();
+            const day = phtDate.getDate();
+
+            // In PHT, UTC offset is +8 hrs. So UTC hour for reset is (hour24 - 8)
+            const todayResetMs = Date.UTC(year, month, day, hour24 - 8, minute, 0, 0);
+
+            let lastResetMs;
+            let nextResetMs;
+
+            if (now >= todayResetMs) {
+                lastResetMs = todayResetMs;
+                nextResetMs = todayResetMs + (24 * 3600 * 1000);
+            } else {
+                lastResetMs = todayResetMs - (24 * 3600 * 1000);
+                nextResetMs = todayResetMs;
+            }
+
+            return { now, lastResetMs, nextResetMs };
+        }
+
+        function formatResetTimeLabel(cfg = dailyResetConfig) {
+            const h = cfg?.hour || 12;
+            const m = String(cfg?.minute || 0).padStart(2, '0');
+            const ampm = cfg?.ampm || 'AM';
+            return `${h}:${m} ${ampm} PHT`;
+        }
+
         // Debounced Firestore history sync to prevent exhausting write streams
         let saveHistoryTimeout = null;
         let isSavingHistory = false;
@@ -2954,11 +2995,12 @@
             }, 300);
         }
 
-        // Automatically prune solver history: keeps all details in cloud DB, but strips heavy circle images after lifecycle limit to save DB space
+        // Automatically prune solver history: once daily reset hits (e.g. 10:00 PM),
+        // circle images disappear while all log details are preserved forever in DB
         let hasPruningSyncPending = false;
         function pruneSolverHistory(list) {
             if (!Array.isArray(list)) return [];
-            const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+            const { lastResetMs } = getDailyResetTimestamps();
             let changed = false;
 
             // Retain up to 500 solves (lightweight text records take minimal space, ~45KB total)
@@ -2969,14 +3011,16 @@
                 changed = true;
             }
 
-            // Lifecycle Auto-Clear Rule:
-            // Keeps all solve logs & text details permanently in the database!
-            // Only clears heavy circle crop images after reaching the 24h lifecycle limit
+            // Daily Reset Auto-Clear Rule:
+            // Once the configured daily reset time (e.g. 10:00 PM) arrives:
+            // All circle crop images for quizzes taken prior to the reset time disappear.
+            // The solve log itself (user, result digits, duration, timestamp) is NEVER deleted,
+            // staying permanently in the database for analytics!
             for (let item of sorted) {
-                const isOlderThan24h = (item.timestamp || 0) < oneDayAgo;
+                const isBeforeReset = (item.timestamp || 0) < lastResetMs;
                 const hasTargets = Array.isArray(item.targets) && item.targets.length > 0;
                 const hasAnswers = Array.isArray(item.answers) && item.answers.length > 0;
-                if (isOlderThan24h && (hasTargets || hasAnswers)) {
+                if (isBeforeReset && (hasTargets || hasAnswers)) {
                     item.targets = [];
                     item.answers = [];
                     item.imagesPruned = true;
@@ -2990,7 +3034,7 @@
                 setTimeout(() => {
                     hasPruningSyncPending = false;
                     saveHistoryToCloud(sorted);
-                }, 500);
+                }, 400);
             }
 
             return sorted;
@@ -3371,7 +3415,7 @@
                         <div style="background:#141416; border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
                             <span style="font-size:11px; color:#888; display:inline-flex; align-items:center; gap:5px;">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                                Circle images cleared (&gt;24h) • Text details retained in DB
+                                Circle images expired at daily reset • Log retained in DB for analytics
                             </span>
                             <span style="font-size:11px; font-weight:700; color:var(--accent); font-family:monospace;">
                                 T1→A${safeResult.charAt(0) || '?'} • T2→A${safeResult.charAt(1) || '?'} • T3→A${safeResult.charAt(2) || '?'}
@@ -3923,12 +3967,17 @@
             dailyResetConfig = { hour: h, minute: m, ampm };
             updateDailyResetSettingsUI();
 
+            // Immediately prune solver history according to the newly configured daily reset time
+            solverHistory = pruneSolverHistory(solverHistory);
+            renderSolverHistory();
+
             if (db) {
                 try {
                     await db.collection('config').doc('appSettings').set({
-                        dailyResetConfig: dailyResetConfig
+                        dailyResetConfig: dailyResetConfig,
+                        solverHistory: solverHistory
                     }, { merge: true });
-                    showToast(`Daily reset time saved: ${formatResetTimeLabel()}`, "success", 2500);
+                    showToast(`Daily reset time saved: ${formatResetTimeLabel()} • Images updated`, "success", 2500);
                 } catch (e) {
                     console.warn("Could not save daily reset config to Firebase:", e);
                     showToast("Failed to save reset time to cloud", "error", 2500);
@@ -3948,60 +3997,40 @@
 
             if (!countdownEl) return;
 
-            if (!Array.isArray(solverHistory) || solverHistory.length === 0) {
-                if (badgeEl) badgeEl.innerText = `💾 0 Solves • Reset: ${formatResetTimeLabel()}`;
-                countdownEl.innerText = 'No solves recorded yet in database';
-                if (infoEl) infoEl.innerText = `All logs saved permanently in DB • Resets daily at ${formatResetTimeLabel()}`;
-                return;
-            }
+            const { now, nextResetMs } = getDailyResetTimestamps();
+            const msRemaining = Math.max(0, nextResetMs - now);
 
-            // Find the oldest record that STILL has circle images
-            let oldestWithImages = null;
-            let imagesClearedCount = 0;
+            const hours = Math.floor(msRemaining / (3600 * 1000));
+            const minutes = Math.floor((msRemaining % (3600 * 1000)) / (60 * 1000));
+            const seconds = Math.floor((msRemaining % (60 * 1000)) / 1000);
+            const timeStr = `${hours}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
+
             let withImagesCount = 0;
-
+            let imagesClearedCount = 0;
             solverHistory.forEach(item => {
                 if (item) {
                     const hasImgs = (Array.isArray(item.targets) && item.targets.length > 0) ||
                                     (Array.isArray(item.answers) && item.answers.length > 0);
-                    if (hasImgs && item.timestamp) {
+                    if (hasImgs) {
                         withImagesCount++;
-                        if (oldestWithImages === null || item.timestamp < oldestWithImages.timestamp) {
-                            oldestWithImages = item;
-                        }
                     } else {
                         imagesClearedCount++;
                     }
                 }
             });
 
-            if (!oldestWithImages) {
-                if (badgeEl) badgeEl.innerText = `💾 ${solverHistory.length} Logs Saved • Reset: ${formatResetTimeLabel()}`;
-                countdownEl.innerText = `All ${imagesClearedCount} logs permanently saved in DB • Images archived (Cycle reset at ${formatResetTimeLabel()})`;
-                if (infoEl) infoEl.innerText = `All logs permanently saved in DB • Images pruned after lifecycle`;
-                return;
+            if (badgeEl) {
+                if (withImagesCount > 0) {
+                    badgeEl.innerText = `📷 Active (${withImagesCount} imgs) • Reset: ${formatResetTimeLabel()}`;
+                } else {
+                    badgeEl.innerText = `💾 ${solverHistory.length} Logs Saved • Reset: ${formatResetTimeLabel()}`;
+                }
             }
 
-            const expiryTime = oldestWithImages.timestamp + (24 * 60 * 60 * 1000);
-            const msRemaining = expiryTime - Date.now();
-
-            if (msRemaining <= 0) {
-                if (badgeEl) badgeEl.innerText = '⏳ Pruning images...';
-                countdownEl.innerText = 'Lifecycle reached • Pruning circle images now (keeping all logs in DB)...';
-                solverHistory = pruneSolverHistory(solverHistory);
-                renderSolverHistory();
-                saveHistoryToCloud(solverHistory);
-                return;
+            countdownEl.innerText = `Daily reset in ${timeStr} (${formatResetTimeLabel()}) • ${withImagesCount} active, ${imagesClearedCount} text-archived in DB`;
+            if (infoEl) {
+                infoEl.innerText = `Circle images disappear at ${formatResetTimeLabel()} • All logs preserved in DB for analytics`;
             }
-
-            const hours = Math.floor(msRemaining / (3600 * 1000));
-            const minutes = Math.floor((msRemaining % (3600 * 1000)) / (60 * 1000));
-            const seconds = Math.floor((msRemaining % (60 * 1000)) / 1000);
-            const timeStr = `${hours}h ${minutes < 10 ? '0' : ''}${minutes}m ${seconds < 10 ? '0' : ''}${seconds}s`;
-
-            if (badgeEl) badgeEl.innerText = `📷 Active (${withImagesCount} imgs) • Reset: ${formatResetTimeLabel()}`;
-            countdownEl.innerText = `Next circle images expire in ${timeStr} (${withImagesCount} active, ${imagesClearedCount} text-archived in DB)`;
-            if (infoEl) infoEl.innerText = `All logs saved permanently in DB • Circle images expire after lifecycle limit`;
         }
 
         function getDailyCycleDateKey(timestamp, resetHour = (dailyResetConfig.hour || 12), resetMinute = (dailyResetConfig.minute || 0), resetAmPm = (dailyResetConfig.ampm || 'AM')) {
@@ -4303,6 +4332,18 @@
         function startHistoryResetTicker() {
             if (historyResetTicker) return;
             historyResetTicker = setInterval(() => {
+                // Check if the daily reset time has arrived (e.g. 10:00 PM strikes)
+                const { lastResetMs } = getDailyResetTimestamps();
+                const needsPrune = solverHistory.some(item => 
+                    item && (item.timestamp || 0) < lastResetMs && 
+                    ((Array.isArray(item.targets) && item.targets.length > 0) || (Array.isArray(item.answers) && item.answers.length > 0))
+                );
+                if (needsPrune) {
+                    solverHistory = pruneSolverHistory(solverHistory);
+                    renderSolverHistory();
+                    saveHistoryToCloud(solverHistory);
+                }
+
                 if (activeTab === 'history') {
                     updateHistoryResetTimer();
                     updateNextQuizArrivalPrediction();
@@ -4696,6 +4737,8 @@
                                 ampm: String(data.dailyResetConfig.ampm || 'AM').toUpperCase() === 'PM' ? 'PM' : 'AM'
                             };
                             updateDailyResetSettingsUI();
+                            solverHistory = pruneSolverHistory(solverHistory);
+                            renderSolverHistory();
                         }
                         if (Array.isArray(data.solverHistory)) {
                             const raw = data.solverHistory;
