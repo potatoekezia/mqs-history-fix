@@ -4531,14 +4531,23 @@
             }
         }
 
+        const DEFAULT_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyCBP7I0_I_ly8MynxLmE7LjUQnTzm5HXDs",
+            authDomain: "gen-lang-client-0408655533.firebaseapp.com",
+            projectId: "gen-lang-client-0408655533",
+            storageBucket: "gen-lang-client-0408655533.firebasestorage.app",
+            appId: "1:113396905394:web:feaca7c9b2a7700467e0ab",
+            firestoreDatabaseId: "ai-studio-48f55087-ae5a-4ab3-b4c4-0a15286e9759"
+        };
+
         async function initFirebase() {
             let config = {
-                apiKey: localStorage.getItem('fb-apiKey'),
-                authDomain: localStorage.getItem('fb-authDomain'),
-                projectId: localStorage.getItem('fb-projectId'),
-                storageBucket: localStorage.getItem('fb-storageBucket'),
-                appId: localStorage.getItem('fb-appId'),
-                firestoreDatabaseId: localStorage.getItem('fb-databaseId')
+                apiKey: localStorage.getItem('fb-apiKey') || DEFAULT_FIREBASE_CONFIG.apiKey,
+                authDomain: localStorage.getItem('fb-authDomain') || DEFAULT_FIREBASE_CONFIG.authDomain,
+                projectId: localStorage.getItem('fb-projectId') || DEFAULT_FIREBASE_CONFIG.projectId,
+                storageBucket: localStorage.getItem('fb-storageBucket') || DEFAULT_FIREBASE_CONFIG.storageBucket,
+                appId: localStorage.getItem('fb-appId') || DEFAULT_FIREBASE_CONFIG.appId,
+                firestoreDatabaseId: localStorage.getItem('fb-databaseId') || DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId
             };
 
             if (!config.apiKey || !config.projectId) {
@@ -4547,31 +4556,28 @@
                     if (res.ok) {
                         const appletConfig = await res.json();
                         config = {
-                            apiKey: config.apiKey || appletConfig.apiKey || '',
-                            authDomain: config.authDomain || appletConfig.authDomain || '',
-                            projectId: config.projectId || appletConfig.projectId || '',
-                            storageBucket: config.storageBucket || appletConfig.storageBucket || '',
-                            appId: config.appId || appletConfig.appId || '',
-                            firestoreDatabaseId: config.firestoreDatabaseId || appletConfig.firestoreDatabaseId || ''
+                            apiKey: config.apiKey || appletConfig.apiKey || DEFAULT_FIREBASE_CONFIG.apiKey,
+                            authDomain: config.authDomain || appletConfig.authDomain || DEFAULT_FIREBASE_CONFIG.authDomain,
+                            projectId: config.projectId || appletConfig.projectId || DEFAULT_FIREBASE_CONFIG.projectId,
+                            storageBucket: config.storageBucket || appletConfig.storageBucket || DEFAULT_FIREBASE_CONFIG.storageBucket,
+                            appId: config.appId || appletConfig.appId || DEFAULT_FIREBASE_CONFIG.appId,
+                            firestoreDatabaseId: config.firestoreDatabaseId || appletConfig.firestoreDatabaseId || DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId
                         };
-                        if (config.apiKey) localStorage.setItem('fb-apiKey', config.apiKey);
-                        if (config.authDomain) localStorage.setItem('fb-authDomain', config.authDomain);
-                        if (config.projectId) localStorage.setItem('fb-projectId', config.projectId);
-                        if (config.storageBucket) localStorage.setItem('fb-storageBucket', config.storageBucket);
-                        if (config.appId) localStorage.setItem('fb-appId', config.appId);
-                        if (config.firestoreDatabaseId) localStorage.setItem('fb-databaseId', config.firestoreDatabaseId);
-                        const fields = ['apiKey','authDomain','projectId','storageBucket','appId'];
-                        fields.forEach(f => { const el = document.getElementById('fb-'+f); if (el) el.value = config[f]; });
-                        const dbIdInput = document.getElementById('fb-databaseId');
-                        if (dbIdInput) dbIdInput.value = (config.projectId === 'gen-lang-client-0408655533' && config.firestoreDatabaseId) ? config.firestoreDatabaseId : '(default)';
                     }
                 } catch (e) { console.warn("Could not load /firebase-applet-config.json:", e); }
             }
 
-            if (config.projectId !== 'gen-lang-client-0408655533' && config.firestoreDatabaseId === 'ai-studio-48f55087-ae5a-4ab3-b4c4-0a15286e9759') {
-                config.firestoreDatabaseId = '(default)';
-                localStorage.setItem('fb-databaseId', '(default)');
-            }
+            if (config.apiKey) localStorage.setItem('fb-apiKey', config.apiKey);
+            if (config.authDomain) localStorage.setItem('fb-authDomain', config.authDomain);
+            if (config.projectId) localStorage.setItem('fb-projectId', config.projectId);
+            if (config.storageBucket) localStorage.setItem('fb-storageBucket', config.storageBucket);
+            if (config.appId) localStorage.setItem('fb-appId', config.appId);
+            if (config.firestoreDatabaseId) localStorage.setItem('fb-databaseId', config.firestoreDatabaseId);
+
+            const fields = ['apiKey','authDomain','projectId','storageBucket','appId'];
+            fields.forEach(f => { const el = document.getElementById('fb-'+f); if (el) el.value = config[f]; });
+            const dbIdInput = document.getElementById('fb-databaseId');
+            if (dbIdInput) dbIdInput.value = config.firestoreDatabaseId || '(default)';
 
             if (!config.apiKey || !config.projectId) {
                 updateFirebaseStatus('disconnected', 'Firebase: Config Missing');
@@ -4598,7 +4604,8 @@
                 }
                 db = getFirestoreInstance(firebaseApp, config.firestoreDatabaseId);
                 storage = firebaseApp.storage();
-                await db.collection('dictionary').limit(1).get();
+                // Test connection directly with shared appSettings doc
+                await db.collection('config').doc('appSettings').get();
                 updateFirebaseStatus('connected', 'Firebase: Connected');
                 clearActiveDbListeners();
 
@@ -4673,11 +4680,15 @@
                             await batch.commit();
                         }
                     }
+                }, err => {
+                    console.warn("dictionary migration skipped/failed:", err?.message || err);
                 });
 
                 const unsubKeys = db.collection('config').doc('geminiKeys').onSnapshot(doc => {
                     geminiKeys = doc.exists ? (doc.data().keys || []) : [];
                     renderGeminiKeys();
+                }, err => {
+                    console.warn("geminiKeys listener:", err?.message || err);
                 });
                 activeDbListeners.push(unsubKeys);
 
@@ -4778,6 +4789,8 @@
                             }
                         }
                     }
+                }, err => {
+                    console.warn("appSettings listener error:", err?.message || err);
                 });
                 activeDbListeners.push(unsubSettings);
 
@@ -4792,6 +4805,8 @@
                             localStorage.setItem('screenshot_audit_cache', safeStringify(Array.from(screenshotAuditMap.values())));
                         } catch (e) {}
                     }
+                }, err => {
+                    console.warn("screenshotAudit listener:", err?.message || err);
                 });
                 activeDbListeners.push(unsubAudit);
 
@@ -4807,6 +4822,8 @@
                         const p = document.getElementById('duplicates-panel');
                         if (p && p.style.display === 'flex') runDuplicatesAudit();
                     }
+                }, err => {
+                    console.warn("ignoredDuplicates listener:", err?.message || err);
                 });
                 activeDbListeners.push(unsubIgnored);
 
