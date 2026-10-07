@@ -976,233 +976,215 @@
 
     <!-- History Tab -->
     <div id="tab-history" class="tab-content">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <h1 style="margin:0">Solver History</h1>
-            <div style="display:flex; gap:8px;">
-                <button class="btn btn-secondary" style="width:auto; padding:6px 12px; font-size:12px; margin:0" onclick="refreshSolverHistory()">Refresh</button>
-                <button class="btn btn-danger" style="width:auto; padding:6px 12px; font-size:12px; margin:0" onclick="clearSolverHistory()">Clear</button>
-            </div>
-        </div>
-
-        <div class="card" style="margin-bottom:12px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; background:#1e1e1e;">
-            <div style="display:flex; align-items:center; gap:8px;">
-                <span style="font-size:12px; color:var(--text-secondary)">Active User:</span>
-                <span id="history-active-user-badge" style="font-size:13px; font-weight:700; color:var(--accent)">Anonymous</span>
-            </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-                <span id="history-retention-badge" style="font-size:11px; padding:3px 7px; border-radius:4px; background:rgba(3,218,198,0.12); border:1px solid rgba(3,218,198,0.3); color:var(--success); display:flex; align-items:center; gap:4px;" title="Logs & details are preserved in database; heavy circle crop images are automatically pruned after 24h to save DB and local space">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                    24h Image Pruning (Logs Kept)
-                </span>
-                <span id="history-count" style="color:#fff; font-weight:700">0 solves</span>
-            </div>
-        </div>
-
-        <!-- History Analytics & Predictor Section -->
-        <div class="card" style="margin-bottom:12px; padding:12px 14px; background:#1e1e1e; border:1px solid rgba(255,255,255,0.08);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <span style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--accent); display:flex; align-items:center; gap:6px;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                    History Analytics &amp; Predictor
-                </span>
-                <span id="history-reset-badge" style="font-size:11px; color:#38bdf8; font-family:monospace; background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.25); border-radius:4px; padding:2px 7px;">
-                    💾 DB Sync: Real-Time
-                </span>
-            </div>
-
-            <!-- Next Quiz Arrival & Spawn Predictor -->
-            <div id="next-quiz-timing-predictor" style="background:linear-gradient(135deg, rgba(56,189,248,0.12), rgba(187,134,252,0.10)); border:1px solid rgba(56,189,248,0.35); border-radius:8px; padding:12px; margin-bottom:10px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
-                    <span style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#38bdf8; display:flex; align-items:center; gap:6px;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        Next Quiz Arrival Predictor
-                    </span>
-                    <span id="quiz-spawn-status-badge" style="font-size:10px; font-weight:700; color:#38bdf8; background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.3); border-radius:4px; padding:2px 8px; font-family:monospace;">
-                        Calculating...
-                    </span>
-                </div>
-
-                <!-- Main Prediction Display -->
-                <div style="display:flex; justify-content:space-between; align-items:center; background:#141416; border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:10px 12px; margin-bottom:8px; flex-wrap:wrap; gap:10px;">
-                    <div style="display:flex; flex-direction:column; gap:2px;">
-                        <span style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; font-weight:600;">Estimated Arrival Time</span>
-                        <div id="quiz-predicted-time" style="font-size:18px; font-weight:800; color:#fff; font-family:monospace; display:flex; align-items:center; gap:8px;">
-                            <span>—:— PHT</span>
-                        </div>
-                        <span id="quiz-predicted-window" style="font-size:11px; color:#a1a1aa;">Expected window: —</span>
-                    </div>
-
-                    <div style="text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
-                        <span style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; font-weight:600;">Countdown to Next Quiz</span>
-                        <div id="quiz-countdown-timer" style="font-size:20px; font-weight:900; color:var(--success); font-family:monospace; letter-spacing:1px;">
-                            --:--
-                        </div>
-                        <span id="quiz-confidence-text" style="font-size:11px; color:#38bdf8; font-weight:600;">Confidence: —</span>
-                    </div>
-                </div>
-
-                <!-- Timing Metadata Details Grid -->
-                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:6px; font-size:11px;">
-                    <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px;">
-                        <span style="color:#71717a; font-size:10px; display:block;">Analyzed Dataset:</span>
-                        <strong id="quiz-dataset-analyzed" style="color:#38bdf8; font-family:monospace;">All Logs (100%)</strong>
-                    </div>
-                    <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px;">
-                        <span style="color:#71717a; font-size:10px; display:block;">Avg Spawn Interval:</span>
-                        <strong id="quiz-avg-interval" style="color:#e4e4e7; font-family:monospace;">—</strong>
-                    </div>
-                    <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px;">
-                        <span style="color:#71717a; font-size:10px; display:block;">Last Quiz Solved:</span>
-                        <strong id="quiz-last-time" style="color:#e4e4e7; font-family:monospace;">—</strong>
-                    </div>
-                    <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px;">
-                        <span style="color:#71717a; font-size:10px; display:block;">Interval Regularity:</span>
-                        <strong id="quiz-regularity" style="color:var(--accent); font-family:monospace;">—</strong>
-                    </div>
-                </div>
-
-                <!-- Per-User Predictions Section -->
-                <div style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span style="font-size:11px; font-weight:700; color:#e4e4e7; display:flex; align-items:center; gap:5px;">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                            Predictions by User
-                        </span>
-                        <span id="quiz-user-count-badge" style="font-size:10px; color:#a1a1aa; font-family:monospace;">
-                            0 Solvers
-                        </span>
-                    </div>
-                    <div id="quiz-per-user-predictions-list" style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; overflow-x:hidden; padding-right:4px; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent;">
-                        <!-- User prediction cards rendered dynamically -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Daily Quiz Quota Tracker (Target: 3 Quizzes/Day) -->
-            <div id="daily-quota-tracker-card" style="background:#141416; border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:12px; margin-bottom:10px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
-                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                        <span style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#4ade80; display:flex; align-items:center; gap:6px;">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                            Daily Quiz Quota (3/Day)
-                        </span>
-                        <span id="daily-quota-schedule-label" style="font-size:10px; color:#71717a; font-family:monospace;">Target: 3/Day • Resets at 12:00 AM PHT</span>
-                    </div>
-
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <label style="font-size:10px; color:#71717a; text-transform:uppercase; font-weight:600;">Filter Solver:</label>
-                        <select id="daily-quota-user-select" onchange="updateDailyQuotaTracker()" style="font-size:11px; padding:3px 8px; background:#1e1e20; color:#fff; border:1px solid #333; border-radius:4px; margin-bottom:0;">
-                            <option value="all">All Solvers</option>
-                            <option value="me" selected>My Quota Only</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Today's Quota Highlight Card -->
-                <div id="daily-quota-today-banner" style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:10px 12px; margin-bottom:10px;">
-                    <!-- Rendered dynamically -->
-                </div>
-
-                <!-- Daily Breakdown Table / List -->
-                <div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                        <span style="font-size:10px; font-weight:700; color:#71717a; text-transform:uppercase;">Daily History Log</span>
-                        <span id="daily-quota-total-days-badge" style="font-size:10px; color:#a1a1aa; font-family:monospace;">0 recorded days</span>
-                    </div>
-                    <div id="daily-quota-history-list" style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; overflow-x:hidden; padding-right:4px; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent;">
-                        <!-- Daily cards rendered dynamically -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Answer Choice Distribution & Storage Savings -->
-            <div style="background:#141416; border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:8px 12px; margin-bottom:10px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:4px;">
-                    <span style="font-size:11px; font-weight:700; color:var(--text-secondary); text-transform:uppercase;">Answer Choice Frequency (A1 - A4)</span>
-                    <span id="analytics-space-saved" style="font-size:11px; color:var(--success); font-weight:600; display:inline-flex; align-items:center; gap:4px;">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        0 KB saved by 24h prune
-                    </span>
-                </div>
-                <div id="analytics-frequency-bars" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
-                    <!-- A1 to A4 visual frequency cards -->
-                </div>
-            </div>
-
-            <!-- Reset Countdown Banner -->
-            <div style="background:#141416; border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:8px 12px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-                <div style="display:flex; align-items:center; gap:7px;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 10"/></svg>
-                    <span style="font-size:12px; color:var(--text-secondary);">24h Image Prune Status:</span>
-                    <strong id="history-reset-countdown" style="font-size:12px; color:#fff; font-family:monospace; letter-spacing:0.5px;">All images active or pruned</strong>
-                </div>
-                <span id="history-retention-info" style="font-size:11px; color:var(--text-secondary);">Logs kept permanently in DB • Images cleared after 24h</span>
-            </div>
-
-            <!-- Comprehensive Analytics Stat Grid -->
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(90px, 1fr)); gap:8px;">
-                <div style="background:#141416; border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px 10px; text-align:center;">
-                    <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; font-weight:600">Total Solves</div>
-                    <div id="analytics-total-solves" style="font-size:15px; font-weight:800; color:#fff; margin-top:2px; font-family:monospace;">0</div>
-                </div>
-                <div style="background:#141416; border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px 10px; text-align:center;">
-                    <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; font-weight:600">Images Kept</div>
-                    <div id="analytics-active-images" style="font-size:14px; font-weight:800; color:var(--success); margin-top:2px; font-family:monospace;">0 &lt;24h</div>
-                </div>
-                <div style="background:#141416; border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px 10px; text-align:center;">
-                    <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; font-weight:600">Avg Time</div>
-                    <div id="analytics-avg-time" style="font-size:15px; font-weight:800; color:#38bdf8; margin-top:2px; font-family:monospace;">—</div>
-                </div>
-                <div style="background:#141416; border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px 10px; text-align:center;">
-                    <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; font-weight:600">Fastest</div>
-                    <div id="analytics-fastest-time" style="font-size:15px; font-weight:800; color:var(--success); margin-top:2px; font-family:monospace;">—</div>
-                </div>
-                <div style="background:#141416; border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px 10px; text-align:center;">
-                    <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; font-weight:600">Blitz (&lt;3s)</div>
-                    <div id="analytics-blitz-rate" style="font-size:14px; font-weight:800; color:#c084fc; margin-top:2px; font-family:monospace;">—</div>
-                </div>
-                <div style="background:#141416; border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px 10px; text-align:center;">
-                    <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; font-weight:600">Top User</div>
-                    <div id="analytics-top-user" style="font-size:12px; font-weight:700; color:var(--accent); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="Top User">—</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Filter and Sort Controls -->
-        <div class="card" style="margin-bottom:12px; padding:12px; background:#1e1e1e; display:flex; flex-direction:column; gap:10px;">
+        <!-- Sleek Header with Actions & Active User Meta -->
+        <div class="card" style="margin-bottom:12px; padding:12px 16px; background:#18181b; border:1px solid rgba(255,255,255,0.08); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <div>
-                <input type="text" id="history-search-input" placeholder="Search by user or result (e.g. User1 or 421)..." oninput="applyHistoryFiltersAndSort()" style="margin-bottom:0">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <h1 style="margin:0; font-size:18px; font-weight:800; letter-spacing:-0.3px;">Solver History</h1>
+                    <span id="history-count" style="font-size:11px; font-weight:700; color:#38bdf8; background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.25); border-radius:9999px; padding:2px 9px; font-family:monospace;">0 solves</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:4px; font-size:11px; color:var(--text-secondary); flex-wrap:wrap;">
+                    <span>Solver: <strong id="history-active-user-badge" style="color:var(--accent);">Anonymous</strong></span>
+                    <span>•</span>
+                    <span id="history-retention-badge" style="display:inline-flex; align-items:center; gap:4px; color:var(--success);" title="Logs kept permanently; circle crop images automatically pruned after 24h">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        24h Image Pruning
+                    </span>
+                    <span>•</span>
+                    <span id="history-reset-badge" style="color:#38bdf8; font-family:monospace;">Real-Time DB</span>
+                </div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button class="btn btn-secondary" style="width:auto; padding:6px 14px; font-size:12px; margin:0;" onclick="refreshSolverHistory()">Refresh</button>
+                <button class="btn btn-danger" style="width:auto; padding:6px 14px; font-size:12px; margin:0;" onclick="clearSolverHistory()">Clear</button>
+            </div>
+        </div>
+
+        <!-- Compact Key Metrics Overview Strip -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:12px;">
+            <div class="card" style="padding:10px 12px; margin:0; background:#18181b; border:1px solid rgba(255,255,255,0.06); text-align:center;">
+                <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; font-weight:700; letter-spacing:0.5px;">Total Solves</div>
+                <div id="analytics-total-solves" style="font-size:17px; font-weight:900; color:#fff; margin-top:2px; font-family:monospace;">0</div>
+                <div id="analytics-active-images" style="font-size:10px; color:var(--success); margin-top:2px; font-family:monospace;">0 &lt;24h</div>
+            </div>
+            <div class="card" style="padding:10px 12px; margin:0; background:#18181b; border:1px solid rgba(255,255,255,0.06); text-align:center;">
+                <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; font-weight:700; letter-spacing:0.5px;">Avg Solve Speed</div>
+                <div id="analytics-avg-time" style="font-size:17px; font-weight:900; color:#38bdf8; margin-top:2px; font-family:monospace;">—</div>
+                <div style="font-size:10px; color:var(--text-secondary); margin-top:2px;">Fastest: <strong id="analytics-fastest-time" style="color:var(--success); font-family:monospace;">—</strong></div>
+            </div>
+            <div class="card" style="padding:10px 12px; margin:0; background:#18181b; border:1px solid rgba(255,255,255,0.06); text-align:center;">
+                <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; font-weight:700; letter-spacing:0.5px;">Next Quiz Spawn</div>
+                <div id="quiz-countdown-timer" style="font-size:17px; font-weight:900; color:var(--success); margin-top:2px; font-family:monospace;">--:--</div>
+                <div id="quiz-predicted-time" style="font-size:10px; color:#e4e4e7; margin-top:2px; font-family:monospace;"><span>—:— PHT</span></div>
+            </div>
+            <div class="card" style="padding:10px 12px; margin:0; background:#18181b; border:1px solid rgba(255,255,255,0.06); text-align:center;">
+                <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; font-weight:700; letter-spacing:0.5px;">Top Solver</div>
+                <div id="analytics-top-user" style="font-size:13px; font-weight:800; color:var(--accent); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="Top User">—</div>
+                <div style="font-size:10px; color:var(--text-secondary); margin-top:2px;">Blitz (&lt;3s): <strong id="analytics-blitz-rate" style="color:#c084fc; font-family:monospace;">—</strong></div>
+            </div>
+        </div>
+
+        <!-- Collapsible In-Depth Predictor & Quota Breakdown -->
+        <details class="card" style="margin-bottom:12px; padding:0; background:#18181b; border:1px solid rgba(255,255,255,0.08); overflow:hidden; border-radius:8px;">
+            <summary style="padding:10px 14px; font-size:12px; font-weight:700; color:#38bdf8; cursor:pointer; display:flex; justify-content:space-between; align-items:center; user-select:none; background:rgba(255,255,255,0.02);">
+                <span style="display:flex; align-items:center; gap:8px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Timing Predictor &amp; Daily Quota Log (Detailed View)
+                </span>
+                <span style="font-size:10px; color:#a1a1aa; font-weight:normal; background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:4px;">Toggle Insights ▾</span>
+            </summary>
+
+            <div style="padding:12px 14px; display:flex; flex-direction:column; gap:10px; border-top:1px solid rgba(255,255,255,0.06);">
+                <!-- Next Quiz Timing Predictor Detailed Card -->
+                <div id="next-quiz-timing-predictor" style="background:#141416; border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:10px 12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                        <span style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#38bdf8; display:flex; align-items:center; gap:6px;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            Arrival Window Analysis
+                        </span>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span id="quiz-spawn-status-badge" style="font-size:10px; font-weight:700; color:#38bdf8; background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.25); border-radius:4px; padding:2px 7px; font-family:monospace;">
+                                Calculating...
+                            </span>
+                            <span id="quiz-confidence-text" style="font-size:10px; color:#38bdf8; font-weight:600;">Confidence: —</span>
+                        </div>
+                    </div>
+                    <div id="quiz-predicted-window" style="font-size:11px; color:#a1a1aa; margin-bottom:8px;">Expected window: —</div>
+
+                    <!-- Timing Metadata Details Grid -->
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:6px; font-size:11px; margin-bottom:10px;">
+                        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px;">
+                            <span style="color:#71717a; font-size:10px; display:block;">Analyzed Dataset:</span>
+                            <strong id="quiz-dataset-analyzed" style="color:#38bdf8; font-family:monospace;">All Logs (100%)</strong>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px;">
+                            <span style="color:#71717a; font-size:10px; display:block;">Avg Interval:</span>
+                            <strong id="quiz-avg-interval" style="color:#e4e4e7; font-family:monospace;">—</strong>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px;">
+                            <span style="color:#71717a; font-size:10px; display:block;">Last Solved:</span>
+                            <strong id="quiz-last-time" style="color:#e4e4e7; font-family:monospace;">—</strong>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px;">
+                            <span style="color:#71717a; font-size:10px; display:block;">Regularity:</span>
+                            <strong id="quiz-regularity" style="color:var(--accent); font-family:monospace;">—</strong>
+                        </div>
+                    </div>
+
+                    <!-- Per-User Predictions Section -->
+                    <div style="padding-top:8px; border-top:1px solid rgba(255,255,255,0.06);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <span style="font-size:10px; font-weight:700; color:#e4e4e7; text-transform:uppercase;">Predictions by Solver</span>
+                            <span id="quiz-user-count-badge" style="font-size:10px; color:#a1a1aa; font-family:monospace;">0 Solvers</span>
+                        </div>
+                        <div id="quiz-per-user-predictions-list" style="display:flex; flex-direction:column; gap:5px; max-height:180px; overflow-y:auto; overflow-x:hidden; padding-right:4px;"></div>
+                    </div>
+
+                    <!-- Prediction Accuracy & Outcome Log -->
+                    <div id="prediction-verification-log-card" style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.06);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#c084fc; display:flex; align-items:center; gap:5px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                                    Prediction Outcome &amp; Accuracy Log
+                                </span>
+                                <span id="prediction-log-overall-accuracy-badge" style="font-size:10px; font-weight:700; color:#4ade80; background:rgba(74,222,128,0.12); border:1px solid rgba(74,222,128,0.3); border-radius:4px; padding:1px 6px; font-family:monospace;">Calculating...</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <select id="prediction-log-user-select" onchange="renderPredictionVerificationLog()" style="font-size:11px; padding:2px 8px; background:#1e1e20; color:#fff; border:1px solid #333; border-radius:4px; margin-bottom:0;">
+                                    <option value="all">All Solvers</option>
+                                </select>
+                                <select id="prediction-log-status-select" onchange="renderPredictionVerificationLog()" style="font-size:11px; padding:2px 8px; background:#1e1e20; color:#fff; border:1px solid #333; border-radius:4px; margin-bottom:0;">
+                                    <option value="all">All Outcomes</option>
+                                    <option value="hit">Hits (In Window)</option>
+                                    <option value="early">Early</option>
+                                    <option value="late">Late</option>
+                                    <option value="bonus">Bonus Solves</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Accuracy Summary Metric Cards -->
+                        <div id="prediction-log-summary-strip" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(90px, 1fr)); gap:6px; font-size:11px; margin-bottom:8px;"></div>
+
+                        <!-- Chronological Prediction Verification Cards / Rows -->
+                        <div id="prediction-verification-log-list" style="display:flex; flex-direction:column; gap:5px; max-height:200px; overflow-y:auto; overflow-x:hidden; padding-right:4px;"></div>
+                    </div>
+                </div>
+
+                <!-- Daily Quiz Quota Tracker (Target: 3 Quizzes/Day) -->
+                <div id="daily-quota-tracker-card" style="background:#141416; border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:10px 12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#4ade80; display:flex; align-items:center; gap:5px;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                                Daily Quota Tracker (3/Day)
+                            </span>
+                            <span id="daily-quota-schedule-label" style="font-size:10px; color:#71717a; font-family:monospace;">Resets 12:00 AM PHT</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <label style="font-size:10px; color:#71717a; text-transform:uppercase; font-weight:600;">Solver:</label>
+                            <select id="daily-quota-user-select" onchange="updateDailyQuotaTracker()" style="font-size:11px; padding:2px 8px; background:#1e1e20; color:#fff; border:1px solid #333; border-radius:4px; margin-bottom:0;">
+                                <option value="all">All Solvers</option>
+                                <option value="me" selected>My Quota Only</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Today's Quota Highlight Card -->
+                    <div id="daily-quota-today-banner" style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px 10px; margin-bottom:8px;"></div>
+
+                    <!-- Daily Breakdown Table / List -->
+                    <div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                            <span style="font-size:10px; font-weight:700; color:#71717a; text-transform:uppercase;">Daily History</span>
+                            <span id="daily-quota-total-days-badge" style="font-size:10px; color:#a1a1aa; font-family:monospace;">0 recorded days</span>
+                        </div>
+                        <div id="daily-quota-history-list" style="display:flex; flex-direction:column; gap:5px; max-height:160px; overflow-y:auto; overflow-x:hidden; padding-right:4px;"></div>
+                    </div>
+                </div>
+
+                <!-- Pruning & Storage Status Footer -->
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:var(--text-secondary); padding:4px 2px; flex-wrap:wrap; gap:6px;">
+                    <span id="history-reset-countdown">Images active or pruned</span>
+                    <span id="history-retention-info">Logs retained in DB permanently</span>
+                    <span id="analytics-space-saved" style="display:none;"></span>
+                </div>
+            </div>
+        </details>
+
+        <!-- Streamlined Filter and Sort Toolbar -->
+        <div class="card" style="margin-bottom:12px; padding:12px; background:#18181b; border:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; gap:10px;">
+            <div style="position:relative;">
+                <input type="text" id="history-search-input" placeholder="Search by solver or result (e.g. User1 or 421)..." oninput="applyHistoryFiltersAndSort()" style="margin-bottom:0; padding-left:34px; background:#141416; border:1px solid rgba(255,255,255,0.1); border-radius:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" style="position:absolute; left:11px; top:50%; transform:translateY(-50%); pointer-events:none;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </div>
 
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                <div>
-                    <label style="font-size:11px; color:var(--text-secondary); margin-bottom:4px; display:block; font-weight:600">Filter User</label>
-                    <select id="history-filter-user" onchange="applyHistoryFiltersAndSort()" style="margin-bottom:0; font-size:12px; padding:8px 10px; background:#2c2c2c; color:#fff; border:1px solid #444; border-radius:4px; width:100%">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <!-- Filter Pills -->
+                <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                    <button type="button" id="btn-filter-all" class="btn btn-secondary date-filter-btn" style="width:auto; padding:4px 10px; margin:0; font-size:11px; border-color:var(--accent); color:var(--accent);" onclick="setDateFilter('all')">All Time</button>
+                    <button type="button" id="btn-filter-today" class="btn btn-secondary date-filter-btn" style="width:auto; padding:4px 10px; margin:0; font-size:11px;" onclick="setDateFilter('today')">Today</button>
+                    <button type="button" id="btn-filter-7days" class="btn btn-secondary date-filter-btn" style="width:auto; padding:4px 10px; margin:0; font-size:11px;" onclick="setDateFilter('7days')">7 Days</button>
+                    <button type="button" id="btn-filter-images" class="btn btn-secondary date-filter-btn" style="width:auto; padding:4px 10px; margin:0; font-size:11px;" onclick="setDateFilter('images')">With Images</button>
+                    <button type="button" class="btn btn-secondary" style="width:auto; padding:4px 8px; margin:0; font-size:11px; color:var(--text-secondary);" onclick="resetHistoryFilters()">Reset</button>
+                </div>
+
+                <!-- Dropdowns -->
+                <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                    <select id="history-filter-user" onchange="applyHistoryFiltersAndSort()" style="margin-bottom:0; font-size:11px; padding:4px 8px; background:#141416; color:#fff; border:1px solid rgba(255,255,255,0.1); border-radius:4px;">
                         <option value="all">All Users</option>
                         <option value="my_solves">My Solves Only</option>
                     </select>
-                </div>
-                <div>
-                    <label style="font-size:11px; color:var(--text-secondary); margin-bottom:4px; display:block; font-weight:600">Sort By</label>
-                    <select id="history-sort-by" onchange="applyHistoryFiltersAndSort()" style="margin-bottom:0; font-size:12px; padding:8px 10px; background:#2c2c2c; color:#fff; border:1px solid #444; border-radius:4px; width:100%">
+                    <select id="history-sort-by" onchange="applyHistoryFiltersAndSort()" style="margin-bottom:0; font-size:11px; padding:4px 8px; background:#141416; color:#fff; border:1px solid rgba(255,255,255,0.1); border-radius:4px;">
                         <option value="date_desc">Newest First</option>
                         <option value="date_asc">Oldest First</option>
                         <option value="user_asc">User (A-Z)</option>
                         <option value="user_desc">User (Z-A)</option>
-                        <option value="result_asc">Result (Low to High)</option>
-                        <option value="result_desc">Result (High to Low)</option>
+                        <option value="result_asc">Result (Low-High)</option>
+                        <option value="result_desc">Result (High-Low)</option>
                     </select>
                 </div>
-            </div>
-
-            <div style="display:flex; justify-content:space-between; align-items:center; padding-top:2px">
-                <div style="display:flex; gap:6px; flex-wrap:wrap">
-                    <button type="button" id="btn-filter-all" class="btn btn-secondary date-filter-btn" style="width:auto; padding:4px 10px; margin:0; font-size:11px; border-color:var(--accent); color:var(--accent)" onclick="setDateFilter('all')">All Time</button>
-                    <button type="button" id="btn-filter-today" class="btn btn-secondary date-filter-btn" style="width:auto; padding:4px 10px; margin:0; font-size:11px" onclick="setDateFilter('today')">Today</button>
-                    <button type="button" id="btn-filter-7days" class="btn btn-secondary date-filter-btn" style="width:auto; padding:4px 10px; margin:0; font-size:11px" onclick="setDateFilter('7days')">Last 7 Days</button>
-                    <button type="button" id="btn-filter-images" class="btn btn-secondary date-filter-btn" style="width:auto; padding:4px 10px; margin:0; font-size:11px" onclick="setDateFilter('images')">With Images (&lt;24h)</button>
-                </div>
-                <button type="button" class="btn btn-secondary" style="width:auto; padding:4px 10px; margin:0; font-size:11px; color:var(--text-secondary)" onclick="resetHistoryFilters()">Reset</button>
             </div>
         </div>
 
@@ -3455,7 +3437,6 @@
             const blitzRateEl = document.getElementById('analytics-blitz-rate');
             const topUserEl = document.getElementById('analytics-top-user');
             const spaceSavedEl = document.getElementById('analytics-space-saved');
-            const freqBarsEl = document.getElementById('analytics-frequency-bars');
 
             // Predictor elements
             const predConfidenceEl = document.getElementById('predict-confidence-badge');
@@ -3559,35 +3540,214 @@
                 topUserEl.title = topUser !== '—' ? `Most active solver: ${topUser}` : 'No solves recorded yet';
             }
 
-            // Answer choice distribution cards (A1 to A4)
-            if (freqBarsEl) {
-                const totalDigits = Object.values(digitCounts).reduce((a, b) => a + b, 0);
-                const choices = ['1', '2', '3', '4'];
-                freqBarsEl.innerHTML = choices.map(c => {
-                    const count = digitCounts[c] || 0;
-                    const pct = totalDigits > 0 ? Math.round((count / totalDigits) * 100) : 0;
-                    return `
-                        <div style="background:#1e1e1e; border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:6px 8px; text-align:center;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-bottom:4px;">
-                                <span style="font-weight:700; color:var(--accent);">A${c}</span>
-                                <span style="color:#aaa; font-family:monospace; font-size:10px;">${count} (${pct}%)</span>
-                            </div>
-                            <div style="background:#2a2a2a; border-radius:3px; height:6px; overflow:hidden;">
-                                <div style="background:linear-gradient(90deg, var(--accent), var(--success)); height:100%; width:${pct}%; transition:width 0.4s ease;"></div>
-                            </div>
-                        </div>`;
-                }).join('');
-            }
-
             // Next Quiz Arrival & Spawn Predictor calculation
             updateNextQuizArrivalPrediction();
         }
+
+        // QUIZ ARRIVAL PREDICTOR v2: per-user ~3h cycle (170-200 min band), anchored on the last
+        // cycle solve; shorter "bonus" solves never move the anchor and are tracked separately.
+        const QUIZ_CYCLE_BAND_MS = [170 * 60000, 200 * 60000];
+        const QUIZ_CYCLE_DEFAULT_MS = 185 * 60000;
+        const QUIZ_EXTRA_MIN_MS = 45 * 60000;
 
         function formatRelativeMinutes(ms) {
             const totalSecs = Math.round(Math.abs(ms) / 1000);
             const m = Math.floor(totalSecs / 60);
             const s = totalSecs % 60;
             return `${m}m ${s < 10 ? '0' : ''}${s}s`;
+        }
+
+        function formatCycleLength(ms) {
+            const totalMin = Math.round(ms / 60000);
+            const h = Math.floor(totalMin / 60);
+            const m = totalMin % 60;
+            return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
+        }
+
+        function quizMedian(arr) {
+            if (!arr || arr.length === 0) return 0;
+            const s = [...arr].sort((a, b) => a - b);
+            const mid = Math.floor(s.length / 2);
+            return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+        }
+
+        function computeUserCycleModel(solves, now) {
+            const ts = (Array.isArray(solves) ? solves : [])
+                .map(s => s && s.timestamp)
+                .filter(t => typeof t === 'number' && t > 0)
+                .sort((a, b) => a - b);
+            if (ts.length === 0) return null;
+
+            const [lo, hi] = QUIZ_CYCLE_BAND_MS;
+
+            // 1) Cycle gaps: for each solve, the nearest later solve that is >= lo away,
+            //    kept only if it lands inside the band. Extras in between are skipped naturally.
+            const cycleGaps = [];
+            for (let i = 0; i < ts.length; i++) {
+                for (let j = i + 1; j < ts.length; j++) {
+                    const g = ts[j] - ts[i];
+                    if (g > hi) break;
+                    if (g >= lo) { cycleGaps.push(g); break; }
+                }
+            }
+
+            const cycle = cycleGaps.length > 0 ? quizMedian(cycleGaps) : QUIZ_CYCLE_DEFAULT_MS;
+            let spread = 6 * 60000;
+            if (cycleGaps.length >= 3) {
+                const mad = quizMedian(cycleGaps.map(g => Math.abs(g - cycle)));
+                spread = Math.max(3 * 60000, mad * 1.4826);
+            }
+
+            const win = Math.max(6 * 60000, spread * 1.5);
+
+            // 2) Anchor pass: walk forward, evaluate predictions, and move anchor on cycle-length steps
+            let anchor = ts[0];
+            const extraGaps = [];
+            let cyclesClosed = 0, cyclesWithExtra = 0, curHasExtra = false;
+            const predictionLogs = [];
+
+            for (let k = 1; k < ts.length; k++) {
+                const t = ts[k];
+                const g = t - anchor;
+                const predictedTime = anchor + cycle;
+                const winStart = predictedTime - win;
+                const winEnd = predictedTime + win;
+                const diffMs = t - predictedTime;
+                const diffMin = Math.round(diffMs / 60000);
+
+                if (g >= cycle * 0.85 && g <= cycle * 1.15) {
+                    cyclesClosed++;
+                    if (curHasExtra) cyclesWithExtra++;
+                    curHasExtra = false;
+
+                    const isHit = Math.abs(diffMs) <= win;
+                    predictionLogs.push({
+                        solveIndex: k,
+                        actualTime: t,
+                        anchorTime: anchor,
+                        predictedTime,
+                        winStart,
+                        winEnd,
+                        diffMs,
+                        diffMin,
+                        status: isHit ? 'hit' : (diffMs < 0 ? 'early' : 'late'),
+                        statusLabel: isHit ? (diffMin === 0 ? 'Exact Match (0m)' : `Hit (${diffMin > 0 ? '+' : ''}${diffMin}m)`) : (diffMs < 0 ? `Early (${diffMin}m)` : `Late (+${diffMin}m)`),
+                        cycleLength: cycle
+                    });
+                    anchor = t;
+                } else if (g < cycle * 0.7) {
+                    if (g >= QUIZ_EXTRA_MIN_MS) {
+                        extraGaps.push(g);
+                        curHasExtra = true;
+                        predictionLogs.push({
+                            solveIndex: k,
+                            actualTime: t,
+                            anchorTime: anchor,
+                            predictedTime,
+                            winStart,
+                            winEnd,
+                            diffMs,
+                            diffMin,
+                            status: 'bonus',
+                            statusLabel: `Bonus Solve (${Math.round(g / 60000)}m gap)`,
+                            cycleLength: cycle
+                        });
+                    }
+                } else {
+                    // long pause / missed cycles / ambiguous: re-anchor on this solve
+                    const cyclesElapsed = Math.round(g / cycle);
+                    predictionLogs.push({
+                        solveIndex: k,
+                        actualTime: t,
+                        anchorTime: anchor,
+                        predictedTime,
+                        winStart,
+                        winEnd,
+                        diffMs,
+                        diffMin,
+                        status: cyclesElapsed > 1 ? 'break' : (diffMs < 0 ? 'early' : 'late'),
+                        statusLabel: cyclesElapsed > 1 ? `Break / Pause (+${formatRelativeMinutes(g)})` : `Late (+${diffMin}m)`,
+                        cycleLength: cycle
+                    });
+                    anchor = t;
+                    curHasExtra = false;
+                }
+            }
+
+            // Calculate accuracy metrics across evaluated cycle predictions
+            const cycleEvals = predictionLogs.filter(p => p.status === 'hit' || p.status === 'early' || p.status === 'late');
+            const hitCount = predictionLogs.filter(p => p.status === 'hit').length;
+            const earlyCount = predictionLogs.filter(p => p.status === 'early').length;
+            const lateCount = predictionLogs.filter(p => p.status === 'late').length;
+            const bonusCount = predictionLogs.filter(p => p.status === 'bonus').length;
+            const breakCount = predictionLogs.filter(p => p.status === 'break').length;
+            const accuracyRate = cycleEvals.length > 0 ? Math.round((hitCount / cycleEvals.length) * 100) : null;
+            const avgErrorMin = cycleEvals.length > 0
+                ? (cycleEvals.reduce((sum, p) => sum + Math.abs(p.diffMin), 0) / cycleEvals.length).toFixed(1)
+                : '—';
+
+            // 3) Predict next cycle solve, projecting forward if the window was clearly missed
+            let predicted = anchor + cycle;
+            let skipped = 0;
+            while (now > predicted + win + 10 * 60000 && skipped < 24) {
+                predicted += cycle;
+                skipped++;
+            }
+
+            // 4) Optional bonus (extra) solve hint
+            let extra = null;
+            const extraRate = cyclesClosed > 0 ? cyclesWithExtra / cyclesClosed : 0;
+            if (extraGaps.length >= 2 && extraRate >= 0.25 && !curHasExtra && skipped === 0) {
+                const extraAt = anchor + quizMedian(extraGaps);
+                if (now < extraAt + 15 * 60000 && extraAt < predicted - 20 * 60000) {
+                    extra = { at: extraAt, rate: extraRate };
+                }
+            }
+
+            // 5) Confidence from sample count + spread (+ penalty if we had to project forward)
+            const n = cycleGaps.length;
+            const spreadMin = spread / 60000;
+            const conf = Math.round(Math.max(35, Math.min(95, 92 - spreadMin * 2.2 - Math.max(0, 6 - n) * 7 - skipped * 10)));
+
+            return {
+                solvesCount: ts.length,
+                last: ts[ts.length - 1],
+                anchor, cycle, spread, win, predicted, skipped, extra, conf,
+                samples: n,
+                usingDefault: n === 0,
+                predictionLogs,
+                accuracy: {
+                    hitCount,
+                    earlyCount,
+                    lateCount,
+                    bonusCount,
+                    breakCount,
+                    totalCycles: cycleEvals.length,
+                    rate: accuracyRate,
+                    avgErrorMin
+                }
+            };
+        }
+
+        function buildQuizModels(allLogs) {
+            const now = Date.now();
+            const groups = new Map();
+            (Array.isArray(allLogs) ? allLogs : []).forEach(item => {
+                if (!item || typeof item.timestamp !== 'number') return;
+                const name = (item.user || 'Anonymous').trim() || 'Anonymous';
+                const key = name.toLowerCase();
+                if (!groups.has(key)) groups.set(key, { displayName: name, solves: [] });
+                groups.get(key).solves.push(item);
+            });
+            const models = [];
+            for (const [key, g] of groups.entries()) {
+                const m = computeUserCycleModel(g.solves, now);
+                if (m) {
+                    m.predictionLogs.forEach(p => p.user = g.displayName);
+                    models.push({ key, displayName: g.displayName, ...m });
+                }
+            }
+            return models;
         }
 
         function updateNextQuizArrivalPrediction() {
@@ -3603,19 +3763,15 @@
 
             if (!badgeEl || !timeEl) return;
 
-            // Gather ALL recorded logs in history without exclusions
             const list = Array.isArray(solverHistory) ? solverHistory : [];
             const allLogs = list
                 .filter(item => item && typeof item.timestamp === 'number' && item.timestamp > 0)
                 .sort((a, b) => a.timestamp - b.timestamp);
+            const total = allLogs.length;
 
-            const totalSolvesCount = allLogs.length;
+            if (datasetEl) datasetEl.innerText = total > 0 ? `All ${total} Solves (100%)` : `0 Solves (No logs)`;
 
-            if (datasetEl) {
-                datasetEl.innerText = totalSolvesCount > 0 ? `All ${totalSolvesCount} Solves (100%)` : `0 Solves (No logs)`;
-            }
-
-            if (totalSolvesCount === 0) {
+            if (total === 0) {
                 badgeEl.innerText = "Waiting for data";
                 badgeEl.style.color = "#71717a";
                 badgeEl.style.borderColor = "#3f3f46";
@@ -3628,315 +3784,356 @@
                 if (avgIntervalEl) avgIntervalEl.innerText = "—";
                 if (lastTimeEl) lastTimeEl.innerText = "—";
                 if (regularityEl) regularityEl.innerText = "—";
-                updatePerUserPredictions([], 0);
+                updatePerUserPredictions([], []);
+                renderPredictionVerificationLog([]);
                 return;
             }
 
+            const now = Date.now();
             const lastSolve = allLogs[allLogs.length - 1];
-            const lastTime = lastSolve.timestamp;
-            const msSinceLast = Date.now() - lastTime;
-            const lastClock = formatPhilippineClockTime(lastTime);
-
             if (lastTimeEl) {
-                lastTimeEl.innerText = `${formatRelativeMinutes(msSinceLast)} ago (${lastClock})`;
+                lastTimeEl.innerText = `${formatRelativeMinutes(now - lastSolve.timestamp)} ago (${formatPhilippineClockTime(lastSolve.timestamp)})`;
             }
 
-            if (totalSolvesCount < 2) {
-                badgeEl.innerText = "Need 2+ solves";
+            const models = buildQuizModels(allLogs);
+            if (models.length === 0) {
+                updatePerUserPredictions(allLogs, []);
+                renderPredictionVerificationLog([]);
+                return;
+            }
+
+            // Next quiz overall = soonest per-user prediction
+            const soonest = [...models].sort((a, b) => a.predicted - b.predicted)[0];
+            const msRemaining = soonest.predicted - now;
+            const winStart = soonest.predicted - soonest.win;
+            const winEnd = soonest.predicted + soonest.win;
+
+            // Header stats: pooled cycle length across users that have real data
+            const realCycles = models.filter(m => !m.usingDefault).map(m => m.cycle);
+            if (avgIntervalEl) {
+                avgIntervalEl.innerText = realCycles.length > 0
+                    ? `Cycle ~${formatCycleLength(quizMedian(realCycles))}`
+                    : `Cycle ~${formatCycleLength(QUIZ_CYCLE_DEFAULT_MS)} (default)`;
+            }
+            if (regularityEl) {
+                const sp = (soonest.spread / 60000).toFixed(1);
+                regularityEl.innerText = soonest.conf >= 80 ? `High (±${sp}m)` : (soonest.conf >= 60 ? `Moderate (±${sp}m)` : `Low (±${sp}m)`);
+            }
+
+            timeEl.innerHTML = `<span>~${formatPhilippineClockTime(soonest.predicted)} PHT • ${escapeHtml(soonest.displayName)}</span>`;
+            windowEl.innerText = `Expected window: ${formatPhilippineClockTime(winStart)} – ${formatPhilippineClockTime(winEnd)} PHT`;
+            confEl.innerText = `Confidence: ${soonest.conf}% • ${models.length} per-user cycle${models.length === 1 ? '' : 's'} • ${total} logs`;
+
+            if (msRemaining > soonest.win) {
+                const totalSec = Math.floor((msRemaining) / 1000);
+                const h = Math.floor(totalSec / 3600);
+                const m = Math.floor((totalSec % 3600) / 60);
+                const s = totalSec % 60;
+                const cd = h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m ${s < 10 ? '0' : ''}${s}s`;
+                countdownEl.innerText = cd;
+                countdownEl.style.color = "#4ade80";
+                badgeEl.innerText = `⏳ In ~${cd}`;
                 badgeEl.style.color = "#38bdf8";
                 badgeEl.style.borderColor = "rgba(56,189,248,0.3)";
                 badgeEl.style.background = "rgba(56,189,248,0.1)";
-                timeEl.innerHTML = `<span>Awaiting 2nd solve</span>`;
-                windowEl.innerText = "Analyzing 1 solve • Need at least 2 solves to calculate spawn intervals";
-                countdownEl.innerText = "Need Data";
-                countdownEl.style.color = "#38bdf8";
-                confEl.innerText = "Analyzing 1 of 1 log (100%)";
-                if (avgIntervalEl) avgIntervalEl.innerText = "Need 2nd solve";
-                if (regularityEl) regularityEl.innerText = "Baseline";
-                return;
-            }
-
-            // 1. Analyze ALL intervals across the entire historical log dataset
-            const allIntervals = [];
-            for (let i = 1; i < allLogs.length; i++) {
-                const gapMs = allLogs[i].timestamp - allLogs[i - 1].timestamp;
-                if (gapMs > 0) {
-                    allIntervals.push(gapMs);
-                }
-            }
-
-            // 2. Identify the active cycle cadence across all logs
-            // Separate session gaps (< 2 hours) from multi-session pauses
-            const sessionGaps = allIntervals.filter(ms => ms >= 20000 && ms <= 7200000); // 20s to 2h
-            const effectiveGaps = sessionGaps.length > 0 ? sessionGaps : allIntervals;
-
-            // Compute global median and mean across all historical intervals
-            const sortedGaps = [...effectiveGaps].sort((a, b) => a - b);
-            const mid = Math.floor(sortedGaps.length / 2);
-            const globalMedianGap = sortedGaps.length % 2 !== 0
-                ? sortedGaps[mid]
-                : (sortedGaps[mid - 1] + sortedGaps[mid]) / 2;
-
-            const globalMeanGap = effectiveGaps.reduce((a, b) => a + b, 0) / effectiveGaps.length;
-
-            // Also check for common round cadence (10m, 15m, 20m, 30m, 60m)
-            const commonCadences = [10*60*1000, 15*60*1000, 20*60*1000, 30*60*1000, 45*60*1000, 60*60*1000];
-            let bestCadence = null;
-            let minCadenceDiff = Infinity;
-            commonCadences.forEach(c => {
-                const diff = Math.abs(globalMedianGap - c);
-                if (diff < c * 0.25 && diff < minCadenceDiff) {
-                    minCadenceDiff = diff;
-                    bestCadence = c;
-                }
-            });
-
-            // Comprehensive blended interval across ALL logs
-            let expectedIntervalMs = Math.round((globalMedianGap * 0.6) + (globalMeanGap * 0.4));
-            if (bestCadence && Math.abs(expectedIntervalMs - bestCadence) < bestCadence * 0.18) {
-                expectedIntervalMs = Math.round((expectedIntervalMs * 0.35) + (bestCadence * 0.65));
-            }
-
-            if (avgIntervalEl) {
-                avgIntervalEl.innerText = `~${formatRelativeMinutes(expectedIntervalMs)}`;
-            }
-
-            // Measure regularity / variance across ALL analyzed intervals
-            const variance = effectiveGaps.reduce((acc, v) => acc + Math.pow(v - expectedIntervalMs, 2), 0) / effectiveGaps.length;
-            const stdDevMs = Math.sqrt(variance);
-            const stdDevMins = (stdDevMs / (60 * 1000)).toFixed(1);
-
-            const ratio = Math.min(1, stdDevMs / expectedIntervalMs);
-            const confidenceScore = Math.round(Math.max(54, Math.min(97, (1 - (ratio * 0.58)) * 100)));
-
-            if (regularityEl) {
-                regularityEl.innerText = confidenceScore >= 80 
-                    ? `High (±${Math.round(stdDevMs / 1000)}s)`
-                    : (confidenceScore >= 65 ? `Moderate (±${stdDevMins}m)` : `Dynamic (±${stdDevMins}m)`);
-            }
-
-            // Project forward next arrival from the latest solve
-            let predictedArrivalMs = lastTime + expectedIntervalMs;
-            let msRemaining = predictedArrivalMs - Date.now();
-
-            // If time since last solve has already exceeded multiple cycles,
-            // project forward along the rhythm so the upcoming next spawn is always active
-            if (msRemaining < -expectedIntervalMs) {
-                const elapsedSinceLast = Date.now() - lastTime;
-                const cyclesElapsed = Math.floor(elapsedSinceLast / expectedIntervalMs);
-                predictedArrivalMs = lastTime + ((cyclesElapsed + 1) * expectedIntervalMs);
-                msRemaining = predictedArrivalMs - Date.now();
-            }
-
-            const winStartMs = Math.max(lastTime, predictedArrivalMs - Math.max(45000, stdDevMs * 0.65));
-            const winEndMs = predictedArrivalMs + Math.max(45000, stdDevMs * 0.65);
-
-            const arrivalClockStr = formatPhilippineClockTime(predictedArrivalMs);
-            const winStartStr = formatPhilippineClockTime(winStartMs);
-            const winEndStr = formatPhilippineClockTime(winEndMs);
-
-            timeEl.innerHTML = `<span>~${arrivalClockStr} PHT</span>`;
-            windowEl.innerText = `Expected window: ${winStartStr} – ${winEndStr} PHT`;
-            confEl.innerText = `Confidence: ${confidenceScore}% • Analyzed all ${totalSolvesCount} logs (${allIntervals.length} intervals)`;
-
-            if (msRemaining > 0) {
-                // Countdown active
-                const totalSec = Math.floor(msRemaining / 1000);
-                const m = Math.floor(totalSec / 60);
-                const s = totalSec % 60;
-                const cdStr = `${m}m ${s < 10 ? '0' : ''}${s}s`;
-
-                countdownEl.innerText = cdStr;
-                countdownEl.style.color = "#4ade80"; // Bright green
-
-                if (msRemaining <= 90000) {
-                    badgeEl.innerText = "⚡ Spawning Very Soon";
-                    badgeEl.style.color = "#f59e0b";
-                    badgeEl.style.borderColor = "rgba(245,158,11,0.5)";
-                    badgeEl.style.background = "rgba(245,158,11,0.15)";
-                } else {
-                    badgeEl.innerText = `⏳ In ~${cdStr}`;
-                    badgeEl.style.color = "#38bdf8";
-                    badgeEl.style.borderColor = "rgba(56,189,248,0.3)";
-                    badgeEl.style.background = "rgba(56,189,248,0.1)";
-                }
+            } else if (msRemaining > -soonest.win) {
+                countdownEl.innerText = "WINDOW OPEN";
+                countdownEl.style.color = "#f59e0b";
+                badgeEl.innerText = "🎯 In window now";
+                badgeEl.style.color = "#f59e0b";
+                badgeEl.style.borderColor = "rgba(245,158,11,0.5)";
+                badgeEl.style.background = "rgba(245,158,11,0.15)";
             } else {
-                // Overdue / window open
-                const overdueSec = Math.floor(Math.abs(msRemaining) / 1000);
-                const om = Math.floor(overdueSec / 60);
-                const os = overdueSec % 60;
-                const overdueStr = `${om}m ${os < 10 ? '0' : ''}${os}s`;
-
-                countdownEl.innerText = "DUE NOW!";
-                countdownEl.style.color = "#f43f5e"; // Rose / bright red alert
-
-                badgeEl.innerText = `🚨 DUE ANY SECOND! (+${overdueStr})`;
+                countdownEl.innerText = "LATE";
+                countdownEl.style.color = "#f43f5e";
+                badgeEl.innerText = `⚠️ Late (+${formatRelativeMinutes(-msRemaining)})`;
                 badgeEl.style.color = "#f43f5e";
                 badgeEl.style.borderColor = "rgba(244,63,94,0.6)";
                 badgeEl.style.background = "rgba(244,63,94,0.18)";
             }
 
-            // Update Per-User predictions section
-            updatePerUserPredictions(allLogs, expectedIntervalMs);
+            updatePerUserPredictions(allLogs, models);
+            renderPredictionVerificationLog(models);
         }
 
-        function updatePerUserPredictions(allLogs, defaultIntervalMs) {
-            const listEl = document.getElementById('quiz-per-user-predictions-list');
-            const countBadge = document.getElementById('quiz-user-count-badge');
-            if (!listEl) return;
+        let cachedQuizModels = [];
 
-            const currentUser = (getSolverUserName() || 'Anonymous').trim();
-            const currentLower = currentUser.toLowerCase();
+        function filterPredictionLogToUser(userKey) {
+            const selectEl = document.getElementById('prediction-log-user-select');
+            if (selectEl) {
+                selectEl.value = userKey;
+                renderPredictionVerificationLog();
+            }
+            const cardEl = document.getElementById('prediction-verification-log-card');
+            if (cardEl) {
+                cardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
 
-            // Group logs by user
-            const userLogsMap = new Map();
-            (Array.isArray(allLogs) ? allLogs : []).forEach(item => {
-                if (!item) return;
-                const u = (item.user || 'Anonymous').trim() || 'Anonymous';
-                const key = u.toLowerCase();
-                if (!userLogsMap.has(key)) {
-                    userLogsMap.set(key, { displayName: u, solves: [] });
-                }
-                userLogsMap.get(key).solves.push(item);
-            });
-
-            if (countBadge) {
-                const userCount = userLogsMap.size;
-                countBadge.innerText = `${userCount} Solver${userCount === 1 ? '' : 's'}`;
+        function renderPredictionVerificationLog(models) {
+            if (Array.isArray(models)) {
+                cachedQuizModels = models;
+            } else {
+                models = cachedQuizModels;
             }
 
-            if (userLogsMap.size === 0) {
-                listEl.innerHTML = `<div style="font-size:11px; color:#71717a; text-align:center; padding:8px; background:#141416; border-radius:6px; border:1px solid rgba(255,255,255,0.04);">No solver activity recorded yet.</div>`;
+            const listEl = document.getElementById('prediction-verification-log-list');
+            const userSelectEl = document.getElementById('prediction-log-user-select');
+            const statusSelectEl = document.getElementById('prediction-log-status-select');
+            const summaryStripEl = document.getElementById('prediction-log-summary-strip');
+            const overallBadgeEl = document.getElementById('prediction-log-overall-accuracy-badge');
+
+            if (!listEl) return;
+
+            // Populate user select dropdown if options changed
+            if (userSelectEl && Array.isArray(models)) {
+                const currentVal = userSelectEl.value || 'all';
+                const users = models.map(m => ({ key: m.key, displayName: m.displayName }));
+                const existingKeys = Array.from(userSelectEl.options).map(o => o.value);
+                const keysMatches = users.length === (existingKeys.length - 1) && users.every(u => existingKeys.includes(u.key));
+
+                if (!keysMatches) {
+                    userSelectEl.innerHTML = `<option value="all">All Solvers (${users.length})</option>` +
+                        users.map(u => `<option value="${escapeHtml(u.key)}">${escapeHtml(u.displayName)}</option>`).join('');
+                    if (Array.from(userSelectEl.options).some(o => o.value === currentVal)) {
+                        userSelectEl.value = currentVal;
+                    }
+                }
+            }
+
+            const selectedUser = userSelectEl ? userSelectEl.value : 'all';
+            const selectedStatus = statusSelectEl ? statusSelectEl.value : 'all';
+
+            // Filter models based on selected solver
+            const targetModels = (selectedUser === 'all')
+                ? models
+                : models.filter(m => m.key === selectedUser.toLowerCase());
+
+            // Collect all prediction logs from target models
+            let logs = [];
+            targetModels.forEach(m => {
+                if (Array.isArray(m.predictionLogs)) {
+                    logs.push(...m.predictionLogs);
+                }
+            });
+
+            // Calculate aggregated metrics for targetModels
+            let totalCycles = 0;
+            let totalHits = 0;
+            let totalEarly = 0;
+            let totalLate = 0;
+            let totalBonus = 0;
+            let totalBreaks = 0;
+
+            targetModels.forEach(m => {
+                if (m.accuracy) {
+                    totalCycles += m.accuracy.totalCycles || 0;
+                    totalHits += m.accuracy.hitCount || 0;
+                    totalEarly += m.accuracy.earlyCount || 0;
+                    totalLate += m.accuracy.lateCount || 0;
+                    totalBonus += m.accuracy.bonusCount || 0;
+                    totalBreaks += m.accuracy.breakCount || 0;
+                }
+            });
+
+            const overallRate = totalCycles > 0 ? Math.round((totalHits / totalCycles) * 100) : null;
+            const cycleLogs = logs.filter(p => p.status === 'hit' || p.status === 'early' || p.status === 'late');
+            const avgDelta = cycleLogs.length > 0
+                ? (cycleLogs.reduce((acc, p) => acc + Math.abs(p.diffMin), 0) / cycleLogs.length).toFixed(1)
+                : '—';
+
+            // Update overall badge
+            if (overallBadgeEl) {
+                if (overallRate !== null) {
+                    overallBadgeEl.innerText = `${overallRate}% Accuracy (${totalHits}/${totalCycles} hits)`;
+                    overallBadgeEl.style.color = overallRate >= 75 ? "#4ade80" : (overallRate >= 50 ? "#38bdf8" : "#f59e0b");
+                    overallBadgeEl.style.borderColor = overallRate >= 75 ? "rgba(74,222,128,0.3)" : (overallRate >= 50 ? "rgba(56,189,248,0.3)" : "rgba(245,158,11,0.3)");
+                    overallBadgeEl.style.background = overallRate >= 75 ? "rgba(74,222,128,0.12)" : (overallRate >= 50 ? "rgba(56,189,248,0.12)" : "rgba(245,158,11,0.12)");
+                } else {
+                    overallBadgeEl.innerText = "Awaiting 2+ cycle solves";
+                    overallBadgeEl.style.color = "#a1a1aa";
+                    overallBadgeEl.style.borderColor = "rgba(255,255,255,0.1)";
+                    overallBadgeEl.style.background = "rgba(255,255,255,0.04)";
+                }
+            }
+
+            // Update summary strip
+            if (summaryStripEl) {
+                summaryStripEl.innerHTML = `
+                    <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px; text-align:center;">
+                        <span style="color:#71717a; font-size:9px; text-transform:uppercase; font-weight:700; display:block;">Verified Cycles</span>
+                        <strong style="color:#e4e4e7; font-family:monospace; font-size:12px;">${totalCycles}</strong>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px; text-align:center;">
+                        <span style="color:#71717a; font-size:9px; text-transform:uppercase; font-weight:700; display:block;">Prediction Hit Rate</span>
+                        <strong style="color:${overallRate !== null && overallRate >= 70 ? 'var(--success)' : '#38bdf8'}; font-family:monospace; font-size:12px;">${overallRate !== null ? overallRate + '%' : '—'}</strong>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px; text-align:center;">
+                        <span style="color:#71717a; font-size:9px; text-transform:uppercase; font-weight:700; display:block;">Avg Error Delta</span>
+                        <strong style="color:#38bdf8; font-family:monospace; font-size:12px;">${avgDelta !== '—' ? '±' + avgDelta + 'm' : '—'}</strong>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px; text-align:center;">
+                        <span style="color:#71717a; font-size:9px; text-transform:uppercase; font-weight:700; display:block;">Early / Late</span>
+                        <strong style="color:#f59e0b; font-family:monospace; font-size:11px;">${totalEarly} early • ${totalLate} late</strong>
+                    </div>
+                    ${totalBonus > 0 ? `
+                    <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px; text-align:center;">
+                        <span style="color:#71717a; font-size:9px; text-transform:uppercase; font-weight:700; display:block;">Bonus Solves</span>
+                        <strong style="color:#c084fc; font-family:monospace; font-size:12px;">${totalBonus}</strong>
+                    </div>` : ''}
+                `;
+            }
+
+            // Apply status filter
+            if (selectedStatus !== 'all') {
+                logs = logs.filter(p => p.status === selectedStatus);
+            }
+
+            // Sort logs descending (newest actual solve first)
+            logs.sort((a, b) => b.actualTime - a.actualTime);
+
+            if (logs.length === 0) {
+                listEl.innerHTML = `<div style="font-size:11px; color:#71717a; text-align:center; padding:10px; background:#141416; border-radius:6px; border:1px solid rgba(255,255,255,0.04);">No prediction verification records found matching current filter. Solve 2+ quizzes to track prediction accuracy.</div>`;
                 return;
             }
 
             const now = Date.now();
-            const userPredictions = [];
+            listEl.innerHTML = logs.map(item => {
+                const solveClock = formatPhilippineClockTime(item.actualTime);
+                const predClock = formatPhilippineClockTime(item.predictedTime);
+                const winStartClock = formatPhilippineClockTime(item.winStart);
+                const winEndClock = formatPhilippineClockTime(item.winEnd);
+                const agoStr = formatRelativeMinutes(now - item.actualTime);
+                const safeUser = escapeHtml(item.user || 'Anonymous');
 
-            for (const [key, data] of userLogsMap.entries()) {
-                const solves = data.solves.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-                const lastSolve = solves[solves.length - 1];
-                const lastTime = lastSolve ? lastSolve.timestamp : now;
-                const msSinceLast = Math.max(0, now - lastTime);
+                let badgeHtml = '';
+                let deltaText = '';
+                let deltaColor = '#e4e4e7';
 
-                // User interval calculation
-                let userInterval = defaultIntervalMs || (15 * 60 * 1000);
-                const gaps = [];
-                if (solves.length >= 2) {
-                    for (let i = 1; i < solves.length; i++) {
-                        const g = solves[i].timestamp - solves[i - 1].timestamp;
-                        if (g >= 20000 && g <= 7200000) gaps.push(g);
-                    }
-                    if (gaps.length > 0) {
-                        gaps.sort((a, b) => a - b);
-                        const mid = Math.floor(gaps.length / 2);
-                        const userMedian = gaps.length % 2 !== 0 ? gaps[mid] : (gaps[mid - 1] + gaps[mid]) / 2;
-                        userInterval = Math.round((userMedian * 0.7) + ((defaultIntervalMs || userMedian) * 0.3));
-                    }
-                }
-
-                // Confidence calculation per user
-                let userConfidence = 52;
-                if (solves.length >= 2 && gaps.length > 0) {
-                    const variance = gaps.reduce((acc, g) => acc + Math.pow(g - userInterval, 2), 0) / gaps.length;
-                    const stdDev = Math.sqrt(variance);
-                    const ratio = Math.min(1, stdDev / userInterval);
-                    const sampleBonus = Math.min(18, solves.length * 2.5);
-                    userConfidence = Math.round(Math.max(56, Math.min(97, (1 - (ratio * 0.55)) * 80 + sampleBonus)));
-                } else if (solves.length >= 2) {
-                    userConfidence = 64;
-                }
-
-                let predictedArrival = lastTime + userInterval;
-                let msRemaining = predictedArrival - now;
-
-                // Project forward if overdue by multiple cycles
-                if (msRemaining < -userInterval) {
-                    const elapsed = now - lastTime;
-                    const cycles = Math.floor(elapsed / userInterval);
-                    predictedArrival = lastTime + ((cycles + 1) * userInterval);
-                    msRemaining = predictedArrival - now;
-                }
-
-                const isMe = key === currentLower;
-                userPredictions.push({
-                    displayName: data.displayName,
-                    isMe,
-                    solvesCount: solves.length,
-                    confidence: userConfidence,
-                    lastTime,
-                    msSinceLast,
-                    userInterval,
-                    predictedArrival,
-                    msRemaining
-                });
-            }
-
-            // Sort: Current user first, then lowest msRemaining (most urgent)
-            userPredictions.sort((a, b) => {
-                if (a.isMe && !b.isMe) return -1;
-                if (!a.isMe && b.isMe) return 1;
-                return a.msRemaining - b.msRemaining;
-            });
-
-            listEl.innerHTML = userPredictions.map(u => {
-                const userInitial = (u.displayName.charAt(0) || 'U').toUpperCase();
-                const arrivalClock = formatPhilippineClockTime(u.predictedArrival);
-                const lastTimeClock = formatPhilippineClockTime(u.lastTime);
-                const safeName = escapeHtml(u.displayName);
-                const agoStr = formatRelativeMinutes(u.msSinceLast);
-
-                let statusBadgeHtml = '';
-                if (u.msRemaining > 0) {
-                    const totalSec = Math.floor(u.msRemaining / 1000);
-                    const m = Math.floor(totalSec / 60);
-                    const s = totalSec % 60;
-                    const cd = `${m}m ${s < 10 ? '0' : ''}${s}s`;
-
-                    if (u.msRemaining <= 90000) {
-                        statusBadgeHtml = `<span style="background:rgba(245,158,11,0.18); border:1px solid rgba(245,158,11,0.5); color:#f59e0b; padding:2px 7px; border-radius:4px; font-weight:700;">⚡ Soon (~${cd})</span>`;
-                    } else {
-                        statusBadgeHtml = `<span style="background:rgba(74,222,128,0.12); border:1px solid rgba(74,222,128,0.3); color:#4ade80; padding:2px 7px; border-radius:4px; font-weight:700;">⏳ In ~${cd}</span>`;
-                    }
+                if (item.status === 'hit') {
+                    const diffAbs = Math.abs(item.diffMin);
+                    badgeHtml = `<span style="background:rgba(74,222,128,0.15); border:1px solid rgba(74,222,128,0.35); color:#4ade80; padding:2px 8px; border-radius:4px; font-weight:800; font-size:10px; font-family:monospace; display:inline-flex; align-items:center; gap:4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> CORRECT (${diffAbs === 0 ? 'Exact' : (item.diffMin > 0 ? '+' : '') + item.diffMin + 'm'})</span>`;
+                    deltaText = diffAbs === 0 ? 'Exact 0m' : `${item.diffMin > 0 ? '+' : ''}${item.diffMin}m`;
+                    deltaColor = '#4ade80';
+                } else if (item.status === 'early') {
+                    badgeHtml = `<span style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.35); color:#f59e0b; padding:2px 8px; border-radius:4px; font-weight:700; font-size:10px; font-family:monospace;">⚡ EARLY (${item.diffMin}m)</span>`;
+                    deltaText = `${item.diffMin}m`;
+                    deltaColor = '#f59e0b';
+                } else if (item.status === 'late') {
+                    badgeHtml = `<span style="background:rgba(244,63,94,0.15); border:1px solid rgba(244,63,94,0.35); color:#f43f5e; padding:2px 8px; border-radius:4px; font-weight:700; font-size:10px; font-family:monospace;">⚠️ LATE (+${item.diffMin}m)</span>`;
+                    deltaText = `+${item.diffMin}m`;
+                    deltaColor = '#f43f5e';
+                } else if (item.status === 'bonus') {
+                    badgeHtml = `<span style="background:rgba(192,132,252,0.15); border:1px solid rgba(192,132,252,0.35); color:#c084fc; padding:2px 8px; border-radius:4px; font-weight:700; font-size:10px; font-family:monospace;">✨ BONUS SOLVE</span>`;
+                    deltaText = `Off-cycle`;
+                    deltaColor = '#c084fc';
                 } else {
-                    const overdueSec = Math.floor(Math.abs(u.msRemaining) / 1000);
-                    const om = Math.floor(overdueSec / 60);
-                    const os = overdueSec % 60;
-                    const overdueStr = `${om}m ${os < 10 ? '0' : ''}${os}s`;
-                    statusBadgeHtml = `<span style="background:rgba(244,63,94,0.18); border:1px solid rgba(244,63,94,0.5); color:#f43f5e; padding:2px 7px; border-radius:4px; font-weight:800;">🚨 DUE NOW (+${overdueStr})</span>`;
+                    badgeHtml = `<span style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#a1a1aa; padding:2px 8px; border-radius:4px; font-weight:600; font-size:10px; font-family:monospace;">⏸️ BREAK / PAUSE</span>`;
+                    deltaText = `Session Gap`;
+                    deltaColor = '#71717a';
                 }
 
                 return `
                     <div style="background:#141416; border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:7px 10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                        <div style="display:flex; align-items:center; gap:8px; min-width:140px;">
-                            <div style="width:24px; height:24px; border-radius:50%; background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.3); color:#38bdf8; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">
-                                ${userInitial}
+                        <div>
+                            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                <strong style="color:#fff; font-size:11px;">${safeUser}</strong>
+                                <span style="color:#71717a; font-size:10px;">Solved: <span style="color:#e4e4e7; font-family:monospace;">${solveClock} PHT</span> (${agoStr} ago)</span>
                             </div>
-                            <div>
-                                <div style="font-weight:700; font-size:12px; color:#fff; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
-                                    ${safeName}
-                                    ${u.isMe ? '<span style="font-size:9px; background:rgba(187,134,252,0.2); color:var(--accent); padding:1px 5px; border-radius:3px; border:1px solid rgba(187,134,252,0.4)">YOU</span>' : ''}
-                                    <span style="font-size:10px; font-weight:700; color:#38bdf8; background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.25); border-radius:3px; padding:1px 5px; font-family:monospace;" title="Prediction Confidence for ${safeName}">${u.confidence}% Conf</span>
-                                </div>
-                                <div style="font-size:10px; color:#888;">
-                                    Last solve: ${agoStr} ago (${lastTimeClock}) • ${u.solvesCount} log${u.solvesCount === 1 ? '' : 's'}
-                                </div>
+                            <div style="font-size:10px; color:#888; margin-top:2px;">
+                                Predicted: <span style="color:#38bdf8; font-family:monospace;">~${predClock}</span>
+                                • Window: <span style="color:#a1a1aa; font-family:monospace;">${winStartClock} – ${winEndClock}</span>
+                                • Delta: <strong style="color:${deltaColor}; font-family:monospace;">${deltaText}</strong>
                             </div>
                         </div>
-
-                        <div style="display:flex; align-items:center; gap:10px; text-align:right;">
-                            <div style="text-align:right;">
-                                <div style="font-size:9px; color:#71717a; text-transform:uppercase;">Next Quiz</div>
-                                <div style="font-size:12px; font-weight:700; color:#fff; font-family:monospace;">~${arrivalClock} PHT</div>
-                            </div>
-                            <div style="min-width:90px; text-align:right; font-family:monospace; font-size:11px;">
-                                ${statusBadgeHtml}
-                            </div>
+                        <div style="text-align:right;">
+                            ${badgeHtml}
                         </div>
                     </div>
                 `;
             }).join('');
         }
+
+        function updatePerUserPredictions(allLogs, models) {
+            const listEl = document.getElementById('quiz-per-user-predictions-list');
+            const countBadge = document.getElementById('quiz-user-count-badge');
+            if (!listEl) return;
+
+            const now = Date.now();
+            const data = Array.isArray(models) ? models : buildQuizModels(allLogs);
+            const currentLower = (getSolverUserName() || 'Anonymous').trim().toLowerCase();
+
+            if (countBadge) countBadge.innerText = `${data.length} Solver${data.length === 1 ? '' : 's'}`;
+
+            if (data.length === 0) {
+                listEl.innerHTML = `<div style="font-size:11px; color:#71717a; text-align:center; padding:8px; background:#141416; border-radius:6px; border:1px solid rgba(255,255,255,0.04);">No solver activity recorded yet.</div>`;
+                return;
+            }
+
+            const sorted = [...data].sort((a, b) => {
+                const aMe = a.key === currentLower, bMe = b.key === currentLower;
+                if (aMe !== bMe) return aMe ? -1 : 1;
+                return a.predicted - b.predicted;
+            });
+
+            listEl.innerHTML = sorted.map(u => {
+                const isMe = u.key === currentLower;
+                const safeName = escapeHtml(u.displayName);
+                const initial = (u.displayName.charAt(0) || 'U').toUpperCase();
+                const msRemaining = u.predicted - now;
+                const winTxt = `${formatPhilippineClockTime(u.predicted - u.win)} – ${formatPhilippineClockTime(u.predicted + u.win)}`;
+
+                let status;
+                if (msRemaining > u.win) {
+                    const totalSec = Math.floor(msRemaining / 1000);
+                    const h = Math.floor(totalSec / 3600);
+                    const m = Math.floor((totalSec % 3600) / 60);
+                    const cd = h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
+                    status = `<span style="background:rgba(74,222,128,0.12); border:1px solid rgba(74,222,128,0.3); color:#4ade80; padding:2px 7px; border-radius:4px; font-weight:700;">⏳ In ~${cd}</span>`;
+                } else if (msRemaining > -u.win) {
+                    status = `<span style="background:rgba(245,158,11,0.18); border:1px solid rgba(245,158,11,0.5); color:#f59e0b; padding:2px 7px; border-radius:4px; font-weight:700;">🎯 In window</span>`;
+                } else {
+                    status = `<span style="background:rgba(244,63,94,0.18); border:1px solid rgba(244,63,94,0.5); color:#f43f5e; padding:2px 7px; border-radius:4px; font-weight:800;">⚠️ Late (+${formatRelativeMinutes(-msRemaining)})</span>`;
+                }
+
+                const cycleNote = u.usingDefault
+                    ? `default cycle ${formatCycleLength(u.cycle)}`
+                    : `cycle ${formatCycleLength(u.cycle)} (${u.samples} sample${u.samples === 1 ? '' : 's'})`;
+                const skipNote = u.skipped > 0 ? ` • projected +${u.skipped} cycle${u.skipped === 1 ? '' : 's'}` : '';
+                const extraNote = u.extra
+                    ? `<div style="font-size:10px; color:#c084fc; margin-top:2px;">Possible bonus solve ~${formatPhilippineClockTime(u.extra.at)} (${Math.round(u.extra.rate * 100)}% of cycles)</div>`
+                    : '';
+
+                return `
+                    <div style="background:#141416; border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:7px 10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                        <div style="display:flex; align-items:center; gap:8px; min-width:140px;">
+                            <div style="width:24px; height:24px; border-radius:50%; background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.3); color:#38bdf8; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">${initial}</div>
+                            <div>
+                                <div style="font-weight:700; font-size:12px; color:#fff; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                                    ${safeName}
+                                    ${isMe ? '<span style="font-size:9px; background:rgba(187,134,252,0.2); color:var(--accent); padding:1px 5px; border-radius:3px; border:1px solid rgba(187,134,252,0.4)">YOU</span>' : ''}
+                                    <span style="font-size:10px; font-weight:700; color:#38bdf8; background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.25); border-radius:3px; padding:1px 5px; font-family:monospace;">${u.conf}% Conf</span>
+                                    ${u.accuracy && u.accuracy.totalCycles > 0 ? `<span style="font-size:10px; font-weight:700; color:#4ade80; background:rgba(74,222,128,0.12); border:1px solid rgba(74,222,128,0.3); border-radius:3px; padding:1px 5px; font-family:monospace; cursor:pointer;" onclick="filterPredictionLogToUser('${u.key}')" title="Prediction Accuracy: ${u.accuracy.hitCount} of ${u.accuracy.totalCycles} cycles inside ±window. Click to inspect log.">🎯 ${u.accuracy.rate}% Accuracy (${u.accuracy.hitCount}/${u.accuracy.totalCycles})</span>` : ''}
+                                </div>
+                                <div style="font-size:10px; color:#888;">
+                                    Last cycle solve: ${formatRelativeMinutes(now - u.anchor)} ago (${formatPhilippineClockTime(u.anchor)}) • ${u.solvesCount} log${u.solvesCount === 1 ? '' : 's'}
+                                </div>
+                                <div style="font-size:10px; color:#71717a;">${cycleNote}${skipNote}</div>
+                                ${extraNote}
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px; text-align:right;">
+                            <div style="text-align:right;">
+                                <div style="font-size:9px; color:#71717a; text-transform:uppercase;">Next Quiz</div>
+                                <div style="font-size:12px; font-weight:700; color:#fff; font-family:monospace;">~${formatPhilippineClockTime(u.predicted)} PHT</div>
+                                <div style="font-size:9px; color:#71717a; font-family:monospace;">${winTxt}</div>
+                            </div>
+                            <div style="min-width:90px; text-align:right; font-family:monospace; font-size:11px;">${status}</div>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
 
         let historyResetTicker = null;
 
