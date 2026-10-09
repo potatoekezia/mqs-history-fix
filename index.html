@@ -829,10 +829,19 @@
     <div id="tab-solver" class="tab-content active">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1px">
             <h1 style="margin:0">Solver</h1>
-            <button class="btn btn-secondary" style="width:auto; padding:8px 12px; font-size:12px" onclick="refreshSolver()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:4px"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
-                Refresh
-            </button>
+            <div style="display:flex; align-items:center; gap:6px">
+                <span id="solver-disconnect-check" style="display:none; align-items:center; justify-content:center; color:#22c55e;" title="Disconnect notification sent">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <button id="solver-disconnect-btn" class="btn btn-secondary" style="width:auto; padding:8px 12px; font-size:12px; border-color:rgba(239,68,68,0.45); color:#f87171" onclick="handleDisconnectButtonClick()" title="Send user disconnected notification to Discord webhook">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:4px"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                    Disconnect
+                </button>
+                <button class="btn btn-secondary" style="width:auto; padding:8px 12px; font-size:12px" onclick="refreshSolver()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:4px"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+                    Refresh
+                </button>
+            </div>
         </div>
 
         <div id="solver-results" class="hidden">
@@ -899,8 +908,31 @@
                 <button type="button" class="btn btn-secondary" style="flex:1; margin:0; display:flex; align-items:center; justify-content:center; gap:6px; border-color:rgba(255,255,255,0.2);" onclick="document.getElementById('batch-upload-input').click()" title="Upload multiple screenshots at once to auto-match and confirm">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 9 6 6m0-6-6 6"/><rect width="14" height="14" x="7" y="7" rx="1" fill="none"/></svg>
                     <span>Batch Upload (Multi)</span>
+                    <span id="batch-pending-badge" style="display:none; background:var(--accent); color:#000; font-size:10px; font-weight:800; border-radius:10px; padding:1px 6px; margin-left:3px; line-height:14px;"></span>
                 </button>
                 <input type="file" id="batch-upload-input" accept="image/*" multiple class="hidden" onchange="handleBatchScreenshotFiles(event)">
+            </div>
+
+            <!-- Unfinished Batch / Continue Entry Notification Banner -->
+            <div id="batch-resume-banner" style="display:none; margin-bottom:12px; padding:10px 14px; background:linear-gradient(135deg, rgba(187,134,252,0.14) 0%, rgba(147,51,234,0.08) 100%); border:1px solid rgba(187,134,252,0.35); border-radius:12px; align-items:center; justify-content:space-between; gap:10px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="width:32px; height:32px; border-radius:50%; background:rgba(187,134,252,0.2); border:1px solid var(--accent); display:flex; align-items:center; justify-content:center; color:var(--accent); font-size:15px; flex-shrink:0;">
+                        ⏳
+                    </div>
+                    <div>
+                        <div style="font-size:12px; font-weight:700; color:#fff;" id="batch-resume-text">Unfinished Batch: 0 screenshots waiting</div>
+                        <div style="font-size:11px; color:#a1a1aa;">Progress saved — resume reviewing whenever you want</div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; flex-shrink:0;">
+                    <button type="button" class="btn" style="width:auto; padding:6px 14px; font-size:12px; margin:0; font-weight:700; background:linear-gradient(135deg, var(--accent) 0%, var(--accent-variant) 100%); color:#fff; box-shadow:0 3px 10px rgba(187,134,252,0.3); display:flex; align-items:center; gap:5px;" onclick="continueBatchReview()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        <span>Continue Entry</span>
+                    </button>
+                    <button type="button" class="btn btn-secondary" style="width:auto; padding:6px 10px; font-size:11px; margin:0; border-color:rgba(239,68,68,0.3); color:#f87171;" onclick="clearPendingBatch()" title="Discard unfinished batch screenshots">
+                        Clear
+                    </button>
+                </div>
             </div>
 
             <div id="dict-preview-container" class="hidden" style="margin-top:10px; text-align:center;">
@@ -1024,134 +1056,98 @@
             </div>
         </div>
 
-        <!-- Collapsible In-Depth Predictor & Quota Breakdown -->
-        <details class="card" style="margin-bottom:12px; padding:0; background:#18181b; border:1px solid rgba(255,255,255,0.08); overflow:hidden; border-radius:8px;">
-            <summary style="padding:10px 14px; font-size:12px; font-weight:700; color:#38bdf8; cursor:pointer; display:flex; justify-content:space-between; align-items:center; user-select:none; background:rgba(255,255,255,0.02);">
-                <span style="display:flex; align-items:center; gap:8px;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    Timing Predictor &amp; Daily Quota Log (Detailed View)
-                </span>
-                <span style="font-size:10px; color:#a1a1aa; font-weight:normal; background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:4px;">Toggle Insights ▾</span>
-            </summary>
-
-            <div style="padding:12px 14px; display:flex; flex-direction:column; gap:10px; border-top:1px solid rgba(255,255,255,0.06);">
-                <!-- Next Quiz Timing Predictor Detailed Card -->
-                <div id="next-quiz-timing-predictor" style="background:#141416; border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:10px 12px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
-                        <span style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#38bdf8; display:flex; align-items:center; gap:6px;">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                            Arrival Window Analysis
-                        </span>
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            <span id="quiz-spawn-status-badge" style="font-size:10px; font-weight:700; color:#38bdf8; background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.25); border-radius:4px; padding:2px 7px; font-family:monospace;">
-                                Calculating...
-                            </span>
-                            <span id="quiz-confidence-text" style="font-size:10px; color:#38bdf8; font-weight:600;">Confidence: —</span>
-                        </div>
-                    </div>
-                    <div id="quiz-predicted-window" style="font-size:11px; color:#a1a1aa; margin-bottom:8px;">Expected window: —</div>
-
-                    <!-- Timing Metadata Details Grid -->
-                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:6px; font-size:11px; margin-bottom:10px;">
-                        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px;">
-                            <span style="color:#71717a; font-size:10px; display:block;">Analyzed Dataset:</span>
-                            <strong id="quiz-dataset-analyzed" style="color:#38bdf8; font-family:monospace;">All Logs (100%)</strong>
-                        </div>
-                        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px;">
-                            <span style="color:#71717a; font-size:10px; display:block;">Avg Interval:</span>
-                            <strong id="quiz-avg-interval" style="color:#e4e4e7; font-family:monospace;">—</strong>
-                        </div>
-                        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px;">
-                            <span style="color:#71717a; font-size:10px; display:block;">Last Solved:</span>
-                            <strong id="quiz-last-time" style="color:#e4e4e7; font-family:monospace;">—</strong>
-                        </div>
-                        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:5px 8px;">
-                            <span style="color:#71717a; font-size:10px; display:block;">Regularity:</span>
-                            <strong id="quiz-regularity" style="color:var(--accent); font-family:monospace;">—</strong>
-                        </div>
-                    </div>
-
-                    <!-- Per-User Predictions Section -->
-                    <div style="padding-top:8px; border-top:1px solid rgba(255,255,255,0.06);">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                            <span style="font-size:10px; font-weight:700; color:#e4e4e7; text-transform:uppercase;">Predictions by Solver</span>
-                            <span id="quiz-user-count-badge" style="font-size:10px; color:#a1a1aa; font-family:monospace;">0 Solvers</span>
-                        </div>
-                        <div id="quiz-per-user-predictions-list" style="display:flex; flex-direction:column; gap:5px; max-height:180px; overflow-y:auto; overflow-x:hidden; padding-right:4px;"></div>
-                    </div>
-
-                    <!-- Prediction Accuracy & Outcome Log -->
-                    <div id="prediction-verification-log-card" style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.06);">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
-                            <div style="display:flex; align-items:center; gap:6px;">
-                                <span style="font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#c084fc; display:flex; align-items:center; gap:5px;">
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                                    Prediction Outcome &amp; Accuracy Log
-                                </span>
-                                <span id="prediction-log-overall-accuracy-badge" style="font-size:10px; font-weight:700; color:#4ade80; background:rgba(74,222,128,0.12); border:1px solid rgba(74,222,128,0.3); border-radius:4px; padding:1px 6px; font-family:monospace;">Calculating...</span>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:6px;">
-                                <select id="prediction-log-user-select" onchange="renderPredictionVerificationLog()" style="font-size:11px; padding:2px 8px; background:#1e1e20; color:#fff; border:1px solid #333; border-radius:4px; margin-bottom:0;">
-                                    <option value="all">All Solvers</option>
-                                </select>
-                                <select id="prediction-log-status-select" onchange="renderPredictionVerificationLog()" style="font-size:11px; padding:2px 8px; background:#1e1e20; color:#fff; border:1px solid #333; border-radius:4px; margin-bottom:0;">
-                                    <option value="all">All Outcomes</option>
-                                    <option value="hit">Hits (In Window)</option>
-                                    <option value="early">Early</option>
-                                    <option value="late">Late</option>
-                                    <option value="bonus">Bonus Solves</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Accuracy Summary Metric Cards -->
-                        <div id="prediction-log-summary-strip" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(90px, 1fr)); gap:6px; font-size:11px; margin-bottom:8px;"></div>
-
-                        <!-- Chronological Prediction Verification Cards / Rows -->
-                        <div id="prediction-verification-log-list" style="display:flex; flex-direction:column; gap:5px; max-height:200px; overflow-y:auto; overflow-x:hidden; padding-right:4px;"></div>
-                    </div>
+        <!-- Prediction Outcome Log & Insights (Clean, decluttered design) -->
+        <div id="prediction-verification-log-card" class="card" style="margin-bottom:12px; padding:12px 14px; background:#18181b; border:1px solid rgba(255,255,255,0.08); border-radius:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <span style="font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#c084fc; display:flex; align-items:center; gap:6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                        Prediction Accuracy Log
+                    </span>
+                    <span id="prediction-log-overall-accuracy-badge" style="font-size:10px; font-weight:700; color:#4ade80; background:rgba(74,222,128,0.12); border:1px solid rgba(74,222,128,0.3); border-radius:4px; padding:2px 8px; font-family:monospace;">Calculating...</span>
                 </div>
-
-                <!-- Daily Quiz Quota Tracker (Target: 3 Quizzes/Day) -->
-                <div id="daily-quota-tracker-card" style="background:#141416; border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:10px 12px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            <span style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#4ade80; display:flex; align-items:center; gap:5px;">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                                Daily Quota Tracker (3/Day)
-                            </span>
-                            <span id="daily-quota-schedule-label" style="font-size:10px; color:#71717a; font-family:monospace;">Resets 12:00 AM PHT</span>
-                        </div>
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            <label style="font-size:10px; color:#71717a; text-transform:uppercase; font-weight:600;">Solver:</label>
-                            <select id="daily-quota-user-select" onchange="updateDailyQuotaTracker()" style="font-size:11px; padding:2px 8px; background:#1e1e20; color:#fff; border:1px solid #333; border-radius:4px; margin-bottom:0;">
-                                <option value="all">All Solvers</option>
-                                <option value="me" selected>My Quota Only</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Today's Quota Highlight Card -->
-                    <div id="daily-quota-today-banner" style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px 10px; margin-bottom:8px;"></div>
-
-                    <!-- Daily Breakdown Table / List -->
-                    <div>
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                            <span style="font-size:10px; font-weight:700; color:#71717a; text-transform:uppercase;">Daily History</span>
-                            <span id="daily-quota-total-days-badge" style="font-size:10px; color:#a1a1aa; font-family:monospace;">0 recorded days</span>
-                        </div>
-                        <div id="daily-quota-history-list" style="display:flex; flex-direction:column; gap:5px; max-height:160px; overflow-y:auto; overflow-x:hidden; padding-right:4px;"></div>
-                    </div>
-                </div>
-
-                <!-- Pruning & Storage Status Footer -->
-                <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:var(--text-secondary); padding:4px 2px; flex-wrap:wrap; gap:6px;">
-                    <span id="history-reset-countdown">Images active or pruned</span>
-                    <span id="history-retention-info">Logs retained in DB permanently</span>
-                    <span id="analytics-space-saved" style="display:none;"></span>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <select id="prediction-log-user-select" onchange="renderPredictionVerificationLog()" style="font-size:11px; padding:3px 8px; background:#141416; color:#fff; border:1px solid rgba(255,255,255,0.12); border-radius:4px; margin-bottom:0;">
+                        <option value="all">All Solvers</option>
+                    </select>
+                    <select id="prediction-log-status-select" onchange="renderPredictionVerificationLog()" style="font-size:11px; padding:3px 8px; background:#141416; color:#fff; border:1px solid rgba(255,255,255,0.12); border-radius:4px; margin-bottom:0;">
+                        <option value="all">All Outcomes</option>
+                        <option value="hit">Hits (In Window)</option>
+                        <option value="early">Early</option>
+                        <option value="late">Late</option>
+                        <option value="bonus">Bonus Solves</option>
+                    </select>
                 </div>
             </div>
-        </details>
+
+            <!-- Accuracy Summary Metric Cards -->
+            <div id="prediction-log-summary-strip" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(90px, 1fr)); gap:6px; font-size:11px; margin-bottom:10px;"></div>
+
+            <!-- Chronological Prediction Verification Cards / Rows -->
+            <div id="prediction-verification-log-list" style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; overflow-x:hidden; padding-right:4px;"></div>
+
+            <!-- Compact Collapsible Timing Forecast & Daily Quota -->
+            <details style="margin-top:10px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06);">
+                <summary style="font-size:11px; color:#71717a; cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center;">
+                    <span>More Insights: Forecasts &amp; Quotas (3/Day)</span>
+                    <span style="font-size:10px; color:#a1a1aa;">Toggle ▾</span>
+                </summary>
+
+                <div style="margin-top:8px; display:flex; flex-direction:column; gap:8px;">
+                    <!-- Next Quiz Timing Forecast -->
+                    <div id="next-quiz-timing-predictor" style="background:#141416; border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:8px 10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:4px;">
+                            <span style="font-size:10px; font-weight:800; text-transform:uppercase; color:#38bdf8;">Arrival Window Forecast</span>
+                            <span id="quiz-spawn-status-badge" style="font-size:10px; font-weight:700; color:#38bdf8; font-family:monospace;">Calculating...</span>
+                        </div>
+                        <div id="quiz-predicted-window" style="font-size:11px; color:#a1a1aa; margin-bottom:6px;">Expected window: —</div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:#71717a;">
+                            <span id="quiz-confidence-text">Confidence: —</span>
+                            <span id="quiz-regularity" style="color:var(--accent); font-family:monospace;">—</span>
+                        </div>
+                        <!-- Hidden metadata elements to preserve IDs -->
+                        <span id="quiz-dataset-analyzed" style="display:none;"></span>
+                        <span id="quiz-avg-interval" style="display:none;"></span>
+                        <span id="quiz-last-time" style="display:none;"></span>
+
+                        <div style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.04);">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                <span style="font-size:10px; font-weight:700; color:#e4e4e7; text-transform:uppercase;">Forecasts by Solver</span>
+                                <span id="quiz-user-count-badge" style="font-size:10px; color:#a1a1aa; font-family:monospace;">0 Solvers</span>
+                            </div>
+                            <div id="quiz-per-user-predictions-list" style="display:flex; flex-direction:column; gap:4px; max-height:120px; overflow-y:auto; padding-right:2px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Daily Quota Tracker -->
+                    <div id="daily-quota-tracker-card" style="background:#141416; border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:8px 10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:4px;">
+                            <span style="font-size:10px; font-weight:800; text-transform:uppercase; color:#4ade80;">Daily Quota (3/Day)</span>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span id="daily-quota-schedule-label" style="font-size:10px; color:#71717a; font-family:monospace;">Resets 12:00 AM PHT</span>
+                                <select id="daily-quota-user-select" onchange="updateDailyQuotaTracker()" style="font-size:10px; padding:1px 6px; background:#1e1e20; color:#fff; border:1px solid #333; border-radius:4px; margin-bottom:0;">
+                                    <option value="all">All Solvers</option>
+                                    <option value="me" selected>My Quota</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="daily-quota-today-banner" style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:6px 8px; margin-bottom:6px;"></div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <span style="font-size:10px; color:#71717a; text-transform:uppercase;">Recent Days</span>
+                            <span id="daily-quota-total-days-badge" style="font-size:10px; color:#a1a1aa; font-family:monospace;">0 recorded days</span>
+                        </div>
+                        <div id="daily-quota-history-list" style="display:flex; flex-direction:column; gap:4px; max-height:100px; overflow-y:auto; padding-right:2px;"></div>
+                    </div>
+
+                    <!-- Retention info -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:var(--text-secondary); padding:2px;">
+                        <span id="history-reset-countdown">Images active or pruned</span>
+                        <span id="history-retention-info">Logs retained permanently</span>
+                        <span id="analytics-space-saved" style="display:none;"></span>
+                    </div>
+                </div>
+            </details>
+        </div>
 
         <!-- Streamlined Filter and Sort Toolbar -->
         <div class="card" style="margin-bottom:12px; padding:12px; background:#18181b; border:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; gap:10px;">
@@ -1343,8 +1339,20 @@
                 <span style="font-weight:600; font-size:13px">Enable Webhook Notifications</span>
             </label>
 
-            <label style="display:block; margin-bottom:4px; font-weight:500; font-size:12px">Webhook URL:</label>
+            <label style="display:block; margin-bottom:4px; font-weight:500; font-size:12px">Primary Webhook URL (Quiz Solved & Started):</label>
             <input type="url" id="webhook-url-input" placeholder="https://discord.com/api/webhooks/... or custom URL" oninput="updateWebhookUIState()" style="margin-bottom:10px">
+
+            <label style="display:block; margin-bottom:4px; font-weight:500; font-size:12px">Disconnect Webhook URL (Separate Channel / Server):</label>
+            <input type="url" id="webhook-disconnect-url-input" placeholder="https://discord.com/api/webhooks/... (leave empty to use Primary URL)" oninput="updateWebhookUIState()" style="margin-bottom:4px">
+            <p style="font-size:11px; color:var(--text-secondary); margin-top:0; margin-bottom:12px">
+                Separate webhook for Disconnect alerts only. If left empty, it automatically uses the Primary Webhook URL above.
+            </p>
+
+            <label style="display:block; margin-bottom:4px; font-weight:500; font-size:12px">Discord Mention / User ID (Optional):</label>
+            <input type="text" id="webhook-mention-input" placeholder="e.g. 123456789012345678 or @everyone" oninput="saveWebhookSettings(false)" style="margin-bottom:4px">
+            <p style="font-size:11px; color:var(--text-secondary); margin-top:0; margin-bottom:12px">
+                Specific person to ping/mention on disconnect alerts (Discord User ID: Right-click user &gt; Copy User ID, or type <code>@everyone</code> / <code>@here</code>).
+            </p>
 
             <div style="margin-bottom:14px; display:flex; flex-direction:column; gap:8px; background:#141416; padding:10px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.05)">
                 <span style="font-size:11px; font-weight:700; color:var(--text-secondary); text-transform:uppercase;">Notification Events</span>
@@ -1356,11 +1364,16 @@
                     <input type="checkbox" id="webhook-notify-solved-toggle" checked style="width:16px; height:16px; accent-color:var(--accent);">
                     <span><strong>Quiz Solved:</strong> Include user, answer, duration & PH Time</span>
                 </label>
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:var(--text); margin:0">
+                    <input type="checkbox" id="webhook-notify-disconnect-toggle" checked style="width:16px; height:16px; accent-color:var(--accent);">
+                    <span><strong>User Disconnected:</strong> Alert when Disconnect button is clicked</span>
+                </label>
             </div>
 
-            <div style="display:flex; gap:10px;">
-                <button class="btn" style="flex:1; margin:0" onclick="saveWebhookSettings(true)">Save Webhook</button>
-                <button class="btn btn-secondary" style="flex:1; margin:0; border-color: rgba(56,189,248,0.4); color: #38bdf8;" onclick="testWebhookNotification()">Send Test Alert</button>
+            <div style="display:flex; gap:10px; flex-wrap:wrap">
+                <button class="btn" style="flex:1; min-width:130px; margin:0" onclick="saveWebhookSettings(true)">Save Webhooks</button>
+                <button class="btn btn-secondary" style="flex:1; min-width:130px; margin:0; border-color: rgba(56,189,248,0.4); color: #38bdf8;" onclick="testWebhookNotification('quiz')">Test Quiz Webhook</button>
+                <button class="btn btn-secondary" style="flex:1; min-width:130px; margin:0; border-color: rgba(239,68,68,0.4); color: #f87171;" onclick="testWebhookNotification('disconnect')">Test Disconnect Webhook</button>
             </div>
             <p style="font-size:11px; color:var(--text-secondary); margin-top:8px">
                 Direct client-side delivery (0% server load) with Discord rich embed formatting and Philippine Time (UTC+8).
@@ -1600,7 +1613,12 @@
                         <div id="batch-header-subtitle" style="font-size:11px; color:#a1a1aa; margin-top:2px;">Auto-matching answer variants</div>
                     </div>
                 </div>
-                <button type="button" class="btn btn-secondary" style="width:30px; height:30px; border-radius:50%; padding:0; display:flex; align-items:center; justify-content:center; margin:0;" onclick="closeBatchModal()">✕</button>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <button type="button" class="btn btn-secondary" style="width:auto; padding:5px 12px; font-size:11px; margin:0; border-color:rgba(187,134,252,0.3); color:var(--accent); display:flex; align-items:center; gap:5px;" onclick="closeBatchModal(true)" title="Save progress and continue reviewing later">
+                        <span>💾</span> Continue Later
+                    </button>
+                    <button type="button" class="btn btn-secondary" style="width:30px; height:30px; border-radius:50%; padding:0; display:flex; align-items:center; justify-content:center; margin:0;" onclick="closeBatchModal(false)">✕</button>
+                </div>
             </div>
 
             <!-- Processing / Progress Visual Feedback -->
@@ -1626,6 +1644,9 @@
                     </button>
                     <button type="button" class="btn btn-secondary" style="width:auto; padding:3px 10px; font-size:11px; margin:0; border-color:rgba(239,68,68,0.3); color:#f87171;" onclick="batchDiscardCurrent()" title="Discard this card">
                         Discard
+                    </button>
+                    <button type="button" class="btn btn-secondary" style="width:auto; padding:3px 10px; font-size:11px; margin:0; border-color:rgba(187,134,252,0.25); color:#c084fc;" onclick="closeBatchModal(true)" title="Save progress and do the rest later">
+                        Do Later
                     </button>
                 </div>
             </div>
@@ -1838,11 +1859,25 @@
         let firebaseApp = null;
         let db = null;
         let storage = null;
+        const DEFAULT_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyCBP7I0_I_ly8MynxLmE7LjUQnTzm5HXDs",
+            authDomain: "gen-lang-client-0408655533.firebaseapp.com",
+            projectId: "gen-lang-client-0408655533",
+            storageBucket: "gen-lang-client-0408655533.firebasestorage.app",
+            appId: "1:113396905394:web:feaca7c9b2a7700467e0ab",
+            firestoreDatabaseId: "ai-studio-48f55087-ae5a-4ab3-b4c4-0a15286e9759"
+        };
         let geminiKeys = [];
         let screenshotAuditMap = new Map(); // key: hash, value: { fileName, monsterName, timestamp, fileSize }
         let pendingAuditScreenshotData = null;
         let ignoredDuplicatePairsSet = new Set(); // Stores ignored pair identifiers so false positives are hidden
         let solverHistory = [];
+        let solverAutoRefreshSeconds = 0;
+        let solverAutoRefreshTimer = null;
+        let solverCountdownInterval = null;
+        let solverAutoRevertSeconds = 0;
+        let solverAutoRevertTimer = null;
+        let predictionOutcomeBySolveId = new Map();
         let dailyResetConfig = {
             hour: 12,
             minute: 0,
@@ -1962,6 +1997,7 @@
                 renderSolverHistory();
                 startHistoryResetTicker();
                 updateSolverUserNameDisplay();
+                loadBatchQueueFromStorage();
                 // Sync history across instances on startup
                 if (solverHistory.length > 0) {
                     pushHistoryToServer();
@@ -2118,13 +2154,10 @@
                     closeClearHistoryModal();
                     closeDeleteHistoryModal();
                     closeCropZoomModal();
+                    closeDisconnectModal();
                 }
             });
         }
-
-        let solverAutoRefreshSeconds = 0;
-        let solverAutoRefreshTimer = null;
-        let solverCountdownInterval = null;
 
         function clearSolverAutoRefresh() {
             if (solverAutoRefreshTimer) {
@@ -2185,9 +2218,6 @@
             const detectedCropsEl = document.getElementById('detected-crops');
             if (detectedCropsEl) detectedCropsEl.innerHTML = "";
         }
-
-        let solverAutoRevertSeconds = 0;
-        let solverAutoRevertTimer = null;
 
         function clearSolverAutoRevertTimer() {
             if (solverAutoRevertTimer) {
@@ -2395,14 +2425,15 @@
 
         function updateWebhookUIState() {
             const isEnabled = document.getElementById('webhook-enabled-toggle')?.checked || false;
-            const url = (document.getElementById('webhook-url-input')?.value || '').trim();
+            const primaryUrl = (document.getElementById('webhook-url-input')?.value || '').trim();
+            const disconnectUrl = (document.getElementById('webhook-disconnect-url-input')?.value || '').trim();
             const badge = document.getElementById('webhook-status-badge');
             if (!badge) return;
             if (!isEnabled) {
                 badge.innerText = 'Disabled';
                 badge.style.color = 'var(--text-secondary)';
                 badge.style.background = 'rgba(255,255,255,0.06)';
-            } else if (!url) {
+            } else if (!primaryUrl && !disconnectUrl) {
                 badge.innerText = 'Missing URL';
                 badge.style.color = '#f59e0b';
                 badge.style.background = 'rgba(245,158,11,0.15)';
@@ -2416,17 +2447,23 @@
         function saveWebhookSettings(showNotification = true) {
             const isEnabled = document.getElementById('webhook-enabled-toggle')?.checked || false;
             const url = (document.getElementById('webhook-url-input')?.value || '').trim();
+            const disconnectUrl = (document.getElementById('webhook-disconnect-url-input')?.value || '').trim();
+            const mention = (document.getElementById('webhook-mention-input')?.value || '').trim();
             const notifyStart = document.getElementById('webhook-notify-start-toggle')?.checked || false;
             const notifySolved = document.getElementById('webhook-notify-solved-toggle')?.checked ?? true;
+            const notifyDisconnect = document.getElementById('webhook-notify-disconnect-toggle')?.checked ?? true;
 
-            if (isEnabled && !url) {
-                showToast("Please enter a Webhook URL, or disable webhooks", "warning", 3000);
+            if (isEnabled && !url && !disconnectUrl) {
+                showToast("Please enter at least one Webhook URL, or disable webhooks", "warning", 3000);
             }
 
             localStorage.setItem('webhook-enabled', isEnabled);
             localStorage.setItem('webhook-url', url);
+            localStorage.setItem('webhook-disconnect-url', disconnectUrl);
+            localStorage.setItem('webhook-mention', mention);
             localStorage.setItem('webhook-notify-start', notifyStart);
             localStorage.setItem('webhook-notify-solved', notifySolved);
+            localStorage.setItem('webhook-notify-disconnect', notifyDisconnect);
 
             updateWebhookUIState();
             syncSettingsToFirebase();
@@ -2436,23 +2473,46 @@
             }
         }
 
+        function formatDiscordMention(rawMention) {
+            if (!rawMention) return '';
+            const trimmed = String(rawMention).trim();
+            if (!trimmed) return '';
+            if (/^<@!?\d+>$/.test(trimmed) || /^<@&\d+>$/.test(trimmed)) return trimmed;
+            if (trimmed === '@everyone' || trimmed === '@here' || trimmed === 'everyone' || trimmed === 'here') {
+                return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
+            }
+            if (/^\d{17,20}$/.test(trimmed)) return `<@${trimmed}>`;
+            if (/^@\d{17,20}$/.test(trimmed)) return `<@${trimmed.slice(1)}>`;
+            return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
+        }
+
         async function sendQuizWebhookNotification(type, data = {}) {
             try {
                 const isEnabled = localStorage.getItem('webhook-enabled') === 'true';
-                const url = (localStorage.getItem('webhook-url') || '').trim();
+                const primaryUrl = (localStorage.getItem('webhook-url') || '').trim();
+                const disconnectUrl = (localStorage.getItem('webhook-disconnect-url') || '').trim();
                 const notifyStart = localStorage.getItem('webhook-notify-start') === 'true';
                 const notifySolved = localStorage.getItem('webhook-notify-solved') !== 'false';
+                const notifyDisconnect = localStorage.getItem('webhook-notify-disconnect') !== 'false';
 
-                if (type !== 'test') {
+                // Target URL: use dedicated disconnect webhook if available, otherwise fallback to primary URL
+                const url = (type === 'disconnected' && disconnectUrl) ? disconnectUrl : (primaryUrl || disconnectUrl);
+
+                if (type !== 'test' && !data.force) {
                     if (!isEnabled || !url) return { success: false, reason: 'disabled' };
                     if (type === 'started' && !notifyStart) return { success: false, reason: 'start_disabled' };
                     if (type === 'solved' && !notifySolved) return { success: false, reason: 'solved_disabled' };
+                    if (type === 'disconnected' && !notifyDisconnect) return { success: false, reason: 'disconnect_disabled' };
                 }
+                if (!url) return { success: false, reason: 'missing_url' };
 
                 const user = data.user || getSolverUserName() || 'Anonymous';
                 const phTime = formatPhilippineTime(data.timestamp || Date.now());
                 const isDiscord = url.toLowerCase().includes('discord.com');
                 const isSlack = url.toLowerCase().includes('slack.com');
+
+                const rawMention = data.mention !== undefined ? data.mention : (localStorage.getItem('webhook-mention') || '');
+                const mentionTag = formatDiscordMention(rawMention);
 
                 let payload;
                 if (isDiscord) {
@@ -2470,6 +2530,9 @@
                             { name: "🇵🇭 PH Date & Time", value: phTime, inline: true },
                             { name: "⚡ Mode", value: "Client-Side Direct (Zero Server Load)", inline: false }
                         ];
+                        if (mentionTag) {
+                            fields.push({ name: "🔔 Mention Test", value: mentionTag, inline: true });
+                        }
                     } else if (type === 'started') {
                         title = "📝 Quiz Started";
                         desc = `**${user}** is analyzing a monster quiz...`;
@@ -2478,6 +2541,18 @@
                             { name: "👤 User", value: user, inline: true },
                             { name: "🇵🇭 PH Date & Time", value: phTime, inline: true }
                         ];
+                    } else if (type === 'disconnected') {
+                        title = "⚠️ User Disconnected";
+                        desc = `**${user}** has disconnected!`;
+                        color = 0xef4444; // Warning Red
+                        fields = [
+                            { name: "👤 User", value: user, inline: true },
+                            { name: "📶 Status", value: "Disconnected", inline: true },
+                            { name: "🇵🇭 PH Date & Time", value: phTime, inline: false }
+                        ];
+                        if (mentionTag) {
+                            fields.splice(2, 0, { name: "🔔 Mention", value: mentionTag, inline: true });
+                        }
                     } else { // 'solved'
                         fields = [
                             { name: "👤 User", value: user, inline: true },
@@ -2487,10 +2562,21 @@
                         ];
                     }
 
+                    let messageContent = undefined;
+                    if (type === 'solved') {
+                        messageContent = `🎯 **Quiz Solved** by **${user}** • Answer: \`${data.result || '---'}\``;
+                    } else if (type === 'disconnected') {
+                        messageContent = mentionTag
+                            ? `${mentionTag} ⚠️ **User Disconnected**: **${user}** has disconnected!`
+                            : `⚠️ **User Disconnected**: **${user}** has disconnected!`;
+                    } else if (type === 'test' && mentionTag) {
+                        messageContent = `${mentionTag} 🔔 Test alert from Monster Quiz Solver!`;
+                    }
+
                     payload = {
                         username: "Monster Quiz Solver",
                         avatar_url: "https://img.icons8.com/color/96/bullseye.png",
-                        content: type === 'solved' ? `🎯 **Quiz Solved** by **${user}** • Answer: \`${data.result || '---'}\`` : undefined,
+                        content: messageContent,
                         embeds: [{
                             title,
                             description: desc,
@@ -2502,8 +2588,10 @@
                     };
                 } else if (isSlack) {
                     let text = '';
+                    const slackPing = mentionTag ? `${mentionTag} ` : '';
                     if (type === 'test') text = `🔔 *Webhook Test Successful*: Monster Quiz Solver connected! (${phTime})`;
                     else if (type === 'started') text = `📝 *Quiz Started*: *${user}* is taking a quiz... (${phTime})`;
+                    else if (type === 'disconnected') text = `${slackPing}⚠️ *User Disconnected*: *${user}* has disconnected! (${phTime})`;
                     else text = `🎯 *Quiz Solved*: *${user}* answered *${data.result || '---'}* in ${data.duration ? data.duration + 's' : 'N/A'} • ${phTime}`;
                     payload = { text };
                 } else {
@@ -2511,11 +2599,14 @@
                     payload = {
                         event: type,
                         user,
+                        mention: mentionTag || null,
                         result: data.result || null,
                         duration: data.duration || null,
                         philippineTime: phTime,
                         timestamp: data.timestamp || Date.now(),
-                        message: type === 'solved' ? `${user} answered ${data.result} in ${data.duration}s` : `Quiz event: ${type}`
+                        message: type === 'disconnected'
+                            ? `${user} has disconnected`
+                            : (type === 'solved' ? `${user} answered ${data.result} in ${data.duration}s` : `Quiz event: ${type}`)
                     };
                 }
 
@@ -2535,8 +2626,12 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ url, payload })
                     });
-                    const proxyData = await proxyRes.json();
-                    if (!proxyData.success) throw new Error(proxyData.error || 'Webhook request failed');
+                    if (!proxyRes.ok) {
+                        const errData = await proxyRes.json().catch(() => null);
+                        throw new Error((errData && errData.error) || `Proxy request failed with status ${proxyRes.status}`);
+                    }
+                    const proxyData = await proxyRes.json().catch(() => ({ success: true }));
+                    if (proxyData && proxyData.success === false) throw new Error(proxyData.error || 'Webhook request failed');
                     return { success: true };
                 }
             } catch (err) {
@@ -2545,28 +2640,101 @@
             }
         }
 
-        async function testWebhookNotification() {
-            const urlInput = document.getElementById('webhook-url-input');
-            const url = (urlInput?.value || localStorage.getItem('webhook-url') || '').trim();
-            if (!url) {
-                showToast("Please enter a Webhook URL first", "warning", 3000);
-                if (urlInput) urlInput.focus();
+        async function testWebhookNotification(target = 'quiz') {
+            const isDisconnectTest = target === 'disconnect';
+            const primaryInput = document.getElementById('webhook-url-input');
+            const disconnectInput = document.getElementById('webhook-disconnect-url-input');
+            const primaryUrl = (primaryInput?.value || localStorage.getItem('webhook-url') || '').trim();
+            const disconnectUrl = (disconnectInput?.value || localStorage.getItem('webhook-disconnect-url') || '').trim();
+
+            const targetUrl = isDisconnectTest ? (disconnectUrl || primaryUrl) : (primaryUrl || disconnectUrl);
+            if (!targetUrl) {
+                showToast(isDisconnectTest ? "Please enter a Disconnect Webhook URL (or Primary URL) first" : "Please enter a Webhook URL first", "warning", 3000);
+                if (isDisconnectTest && disconnectInput) disconnectInput.focus();
+                else if (primaryInput) primaryInput.focus();
                 return;
             }
 
-            const toast = showToast("Sending test webhook alert...", "syncing", 0);
+            const label = isDisconnectTest ? "disconnect" : "quiz";
+            const toast = showToast(`Sending test ${label} webhook alert...`, "syncing", 0);
             try {
-                // Save URL temporarily for test
-                localStorage.setItem('webhook-url', url);
-                await sendQuizWebhookNotification('test', { user: getSolverUserName() });
+                if (primaryUrl) localStorage.setItem('webhook-url', primaryUrl);
+                if (disconnectUrl) localStorage.setItem('webhook-disconnect-url', disconnectUrl);
+                const mention = (document.getElementById('webhook-mention-input')?.value || localStorage.getItem('webhook-mention') || '').trim();
+                await sendQuizWebhookNotification(isDisconnectTest ? 'disconnected' : 'test', {
+                    user: getSolverUserName(),
+                    mention,
+                    force: true
+                });
                 toast.classList.add('fade-out');
                 setTimeout(() => toast.remove(), 250);
-                showToast("✅ Test alert sent successfully!", "success", 3000);
+                showToast(`✅ Test ${label} alert sent successfully!`, "success", 3000);
             } catch (err) {
                 toast.classList.add('fade-out');
                 setTimeout(() => toast.remove(), 250);
                 showToast("❌ Webhook error: " + (err.message || "Failed to reach webhook endpoint"), "error", 4000);
             }
+        }
+
+        async function handleDisconnectButtonClick() {
+            const primaryUrl = (document.getElementById('webhook-url-input')?.value || localStorage.getItem('webhook-url') || '').trim();
+            const disconnectUrl = (document.getElementById('webhook-disconnect-url-input')?.value || localStorage.getItem('webhook-disconnect-url') || '').trim();
+            const effectiveUrl = disconnectUrl || primaryUrl;
+
+            if (!effectiveUrl) {
+                showToast("⚠️ Please enter a Discord Webhook URL in Settings first", "warning", 3500);
+                switchTab('settings');
+                const urlInput = document.getElementById('webhook-disconnect-url-input') || document.getElementById('webhook-url-input');
+                if (urlInput) {
+                    urlInput.focus();
+                    urlInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+
+            const btn = document.getElementById('solver-disconnect-btn');
+            const checkEl = document.getElementById('solver-disconnect-check');
+            const originalContent = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:4px; animation:spin 1s linear infinite"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>Disconnect`;
+            }
+
+            const userName = (getSolverUserName() || 'Anonymous').trim();
+            const mention = (document.getElementById('webhook-mention-input')?.value || localStorage.getItem('webhook-mention') || '').trim();
+
+            try {
+                await sendQuizWebhookNotification('disconnected', {
+                    user: userName,
+                    mention: mention,
+                    timestamp: Date.now(),
+                    force: true
+                });
+
+                if (checkEl) {
+                    checkEl.style.display = 'inline-flex';
+                    if (window._disconnectCheckTimeout) clearTimeout(window._disconnectCheckTimeout);
+                    window._disconnectCheckTimeout = setTimeout(() => {
+                        if (checkEl) checkEl.style.display = 'none';
+                    }, 4000);
+                }
+            } catch (err) {
+                console.warn("Failed to send disconnect notification:", err);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalContent;
+                }
+            }
+        }
+
+        // Backward compatibility helpers
+        function openDisconnectModal() {
+            handleDisconnectButtonClick();
+        }
+        function closeDisconnectModal() {}
+        function executeSendDisconnectNotification() {
+            handleDisconnectButtonClick();
         }
 
         async function syncSettingsToFirebase() {
@@ -2585,8 +2753,11 @@
                     autoRevertSeconds: solverAutoRevertSeconds,
                     webhookEnabled: document.getElementById('webhook-enabled-toggle')?.checked || false,
                     webhookUrl: (document.getElementById('webhook-url-input')?.value || '').trim(),
+                    webhookDisconnectUrl: (document.getElementById('webhook-disconnect-url-input')?.value || '').trim(),
+                    webhookMention: (document.getElementById('webhook-mention-input')?.value || '').trim(),
                     webhookNotifyStart: document.getElementById('webhook-notify-start-toggle')?.checked || false,
                     webhookNotifySolved: document.getElementById('webhook-notify-solved-toggle')?.checked ?? true,
+                    webhookNotifyDisconnect: document.getElementById('webhook-notify-disconnect-toggle')?.checked ?? true,
                     updatedAt: Date.now()
                 };
                 await db.collection('config').doc('appSettings').set(settings);
@@ -2634,18 +2805,27 @@
             // Load Webhook Settings
             const savedWebhookEnabled = localStorage.getItem('webhook-enabled') === 'true';
             const savedWebhookUrl = localStorage.getItem('webhook-url') || '';
+            const savedWebhookDisconnectUrl = localStorage.getItem('webhook-disconnect-url') || '';
+            const savedWebhookMention = localStorage.getItem('webhook-mention') || '';
             const savedWebhookNotifyStart = localStorage.getItem('webhook-notify-start') === 'true';
             const savedWebhookNotifySolved = localStorage.getItem('webhook-notify-solved') !== 'false';
+            const savedWebhookNotifyDisconnect = localStorage.getItem('webhook-notify-disconnect') !== 'false';
 
             const webhookToggleEl = document.getElementById('webhook-enabled-toggle');
             const webhookUrlEl = document.getElementById('webhook-url-input');
+            const webhookDisconnectUrlEl = document.getElementById('webhook-disconnect-url-input');
+            const webhookMentionEl = document.getElementById('webhook-mention-input');
             const webhookNotifyStartEl = document.getElementById('webhook-notify-start-toggle');
             const webhookNotifySolvedEl = document.getElementById('webhook-notify-solved-toggle');
+            const webhookNotifyDisconnectEl = document.getElementById('webhook-notify-disconnect-toggle');
 
             if (webhookToggleEl) webhookToggleEl.checked = savedWebhookEnabled;
             if (webhookUrlEl) webhookUrlEl.value = savedWebhookUrl;
+            if (webhookDisconnectUrlEl) webhookDisconnectUrlEl.value = savedWebhookDisconnectUrl;
+            if (webhookMentionEl) webhookMentionEl.value = savedWebhookMention;
             if (webhookNotifyStartEl) webhookNotifyStartEl.checked = savedWebhookNotifyStart;
             if (webhookNotifySolvedEl) webhookNotifySolvedEl.checked = savedWebhookNotifySolved;
+            if (webhookNotifyDisconnectEl) webhookNotifyDisconnectEl.checked = savedWebhookNotifyDisconnect;
             updateWebhookUIState();
             updateDailyResetSettingsUI();
 
@@ -3364,6 +3544,21 @@
                                                 ${durationStr}
                                             </span>
                                         ` : ''}
+                                        ${(() => {
+                                            const p = item.id ? predictionOutcomeBySolveId.get(item.id) : null;
+                                            if (!p) return '';
+                                            if (p.status === 'hit') {
+                                                const d = p.diffMin === 0 ? 'Exact' : (p.diffMin > 0 ? '+' : '') + p.diffMin + 'm';
+                                                return `<span style="color:#555">•</span><span style="display:inline-flex; align-items:center; gap:3px; color:#4ade80; font-weight:700; font-size:10px; font-family:monospace; background:rgba(74,222,128,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(74,222,128,0.25);" title="Quiz arrived in predicted window">🎯 Hit (${d})</span>`;
+                                            } else if (p.status === 'early') {
+                                                return `<span style="color:#555">•</span><span style="display:inline-flex; align-items:center; gap:3px; color:#f59e0b; font-weight:700; font-size:10px; font-family:monospace; background:rgba(245,158,11,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(245,158,11,0.25);" title="Quiz arrived early">⚡ Early (${p.diffMin}m)</span>`;
+                                            } else if (p.status === 'late') {
+                                                return `<span style="color:#555">•</span><span style="display:inline-flex; align-items:center; gap:3px; color:#f43f5e; font-weight:700; font-size:10px; font-family:monospace; background:rgba(244,63,94,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(244,63,94,0.25);" title="Quiz arrived late">⚠️ Late (+${p.diffMin}m)</span>`;
+                                            } else if (p.status === 'bonus') {
+                                                return `<span style="color:#555">•</span><span style="display:inline-flex; align-items:center; gap:3px; color:#c084fc; font-weight:700; font-size:10px; font-family:monospace; background:rgba(192,132,252,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(192,132,252,0.25);" title="Off-cycle bonus quiz">✨ Bonus</span>`;
+                                            }
+                                            return '';
+                                        })()}
                                     </span>
                                 </div>
                             </div>
@@ -3572,11 +3767,11 @@
         }
 
         function computeUserCycleModel(solves, now) {
-            const ts = (Array.isArray(solves) ? solves : [])
-                .map(s => s && s.timestamp)
-                .filter(t => typeof t === 'number' && t > 0)
-                .sort((a, b) => a - b);
-            if (ts.length === 0) return null;
+            const validSolves = (Array.isArray(solves) ? solves : [])
+                .filter(s => s && typeof s.timestamp === 'number' && s.timestamp > 0)
+                .sort((a, b) => a.timestamp - b.timestamp);
+            if (validSolves.length === 0) return null;
+            const ts = validSolves.map(s => s.timestamp);
 
             const [lo, hi] = QUIZ_CYCLE_BAND_MS;
 
@@ -3615,6 +3810,8 @@
                 const diffMs = t - predictedTime;
                 const diffMin = Math.round(diffMs / 60000);
 
+                const item = validSolves[k];
+
                 if (g >= cycle * 0.85 && g <= cycle * 1.15) {
                     cyclesClosed++;
                     if (curHasExtra) cyclesWithExtra++;
@@ -3622,6 +3819,8 @@
 
                     const isHit = Math.abs(diffMs) <= win;
                     predictionLogs.push({
+                        solveId: item?.id || '',
+                        solveResult: item?.result || '',
                         solveIndex: k,
                         actualTime: t,
                         anchorTime: anchor,
@@ -3636,27 +3835,30 @@
                     });
                     anchor = t;
                 } else if (g < cycle * 0.7) {
-                    if (g >= QUIZ_EXTRA_MIN_MS) {
-                        extraGaps.push(g);
-                        curHasExtra = true;
-                        predictionLogs.push({
-                            solveIndex: k,
-                            actualTime: t,
-                            anchorTime: anchor,
-                            predictedTime,
-                            winStart,
-                            winEnd,
-                            diffMs,
-                            diffMin,
-                            status: 'bonus',
-                            statusLabel: `Bonus Solve (${Math.round(g / 60000)}m gap)`,
-                            cycleLength: cycle
-                        });
-                    }
+                    const gapM = Math.max(1, Math.round(g / 60000));
+                    extraGaps.push(g);
+                    curHasExtra = true;
+                    predictionLogs.push({
+                        solveId: item?.id || '',
+                        solveResult: item?.result || '',
+                        solveIndex: k,
+                        actualTime: t,
+                        anchorTime: anchor,
+                        predictedTime,
+                        winStart,
+                        winEnd,
+                        diffMs,
+                        diffMin,
+                        status: 'bonus',
+                        statusLabel: `Bonus Solve (${gapM < 2 ? '<2m' : gapM + 'm gap'})`,
+                        cycleLength: cycle
+                    });
                 } else {
                     // long pause / missed cycles / ambiguous: re-anchor on this solve
                     const cyclesElapsed = Math.round(g / cycle);
                     predictionLogs.push({
+                        solveId: item?.id || '',
+                        solveResult: item?.result || '',
                         solveIndex: k,
                         actualTime: t,
                         anchorTime: anchor,
@@ -3666,7 +3868,7 @@
                         diffMs,
                         diffMin,
                         status: cyclesElapsed > 1 ? 'break' : (diffMs < 0 ? 'early' : 'late'),
-                        statusLabel: cyclesElapsed > 1 ? `Break / Pause (+${formatRelativeMinutes(g)})` : `Late (+${diffMin}m)`,
+                        statusLabel: cyclesElapsed > 1 ? `Break / Pause (+${formatRelativeMinutes(g)})` : (diffMs < 0 ? `Early (${diffMin}m)` : `Late (+${diffMin}m)`),
                         cycleLength: cycle
                     });
                     anchor = t;
@@ -3740,10 +3942,16 @@
                 groups.get(key).solves.push(item);
             });
             const models = [];
+            predictionOutcomeBySolveId.clear();
             for (const [key, g] of groups.entries()) {
                 const m = computeUserCycleModel(g.solves, now);
                 if (m) {
-                    m.predictionLogs.forEach(p => p.user = g.displayName);
+                    m.predictionLogs.forEach(p => {
+                        p.user = g.displayName;
+                        if (p.solveId) {
+                            predictionOutcomeBySolveId.set(p.solveId, p);
+                        }
+                    });
                     models.push({ key, displayName: g.displayName, ...m });
                 }
             }
@@ -3949,8 +4157,13 @@
                     overallBadgeEl.style.color = overallRate >= 75 ? "#4ade80" : (overallRate >= 50 ? "#38bdf8" : "#f59e0b");
                     overallBadgeEl.style.borderColor = overallRate >= 75 ? "rgba(74,222,128,0.3)" : (overallRate >= 50 ? "rgba(56,189,248,0.3)" : "rgba(245,158,11,0.3)");
                     overallBadgeEl.style.background = overallRate >= 75 ? "rgba(74,222,128,0.12)" : (overallRate >= 50 ? "rgba(56,189,248,0.12)" : "rgba(245,158,11,0.12)");
+                } else if (totalBonus > 0) {
+                    overallBadgeEl.innerText = `${totalBonus} Bonus Solve${totalBonus === 1 ? '' : 's'} Logged`;
+                    overallBadgeEl.style.color = "#c084fc";
+                    overallBadgeEl.style.borderColor = "rgba(192,132,252,0.3)";
+                    overallBadgeEl.style.background = "rgba(192,132,252,0.12)";
                 } else {
-                    overallBadgeEl.innerText = "Awaiting 2+ cycle solves";
+                    overallBadgeEl.innerText = "Tracking Solver History";
                     overallBadgeEl.style.color = "#a1a1aa";
                     overallBadgeEl.style.borderColor = "rgba(255,255,255,0.1)";
                     overallBadgeEl.style.background = "rgba(255,255,255,0.04)";
@@ -4038,6 +4251,7 @@
                         <div>
                             <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                                 <strong style="color:#fff; font-size:11px;">${safeUser}</strong>
+                                ${item.solveResult ? `<span style="font-size:10px; font-weight:700; color:var(--success); font-family:monospace; background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.25); border-radius:3px; padding:0 4px;">Result: ${escapeHtml(item.solveResult)}</span>` : ''}
                                 <span style="color:#71717a; font-size:10px;">Solved: <span style="color:#e4e4e7; font-family:monospace;">${solveClock} PHT</span> (${agoStr} ago)</span>
                             </div>
                             <div style="font-size:10px; color:#888; margin-top:2px;">
@@ -4701,20 +4915,33 @@
 
         function getFirestoreInstance(appInstance, databaseId) {
             if (!appInstance) return null;
-            let targetId = databaseId || localStorage.getItem('fb-databaseId') || 'ai-studio-48f55087-ae5a-4ab3-b4c4-0a15286e9759';
-            if (!targetId || targetId === '(default)') {
-                return (typeof appInstance.firestore === 'function') ? appInstance.firestore() : null;
+            let targetId = databaseId || localStorage.getItem('fb-databaseId');
+            const projectId = appInstance?.options?.projectId || localStorage.getItem('fb-projectId') || DEFAULT_FIREBASE_CONFIG.projectId;
+            if ((!targetId || targetId === '(default)') && projectId === 'gen-lang-client-0408655533') {
+                targetId = DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId || 'ai-studio-48f55087-ae5a-4ab3-b4c4-0a15286e9759';
             }
-            if (typeof firebase !== 'undefined' && firebase.firestore && appInstance.container && appInstance.container.getProvider) {
+
+            let fs = null;
+            if (typeof firebase !== 'undefined' && firebase.firestore && appInstance.container && appInstance.container.getProvider && targetId && targetId !== '(default)') {
                 try {
                     const provider = appInstance.container.getProvider("firestore");
                     const delegate = provider.getImmediate({ identifier: targetId });
-                    return new firebase.firestore.Firestore(appInstance, delegate);
+                    fs = new firebase.firestore.Firestore(appInstance, delegate);
                 } catch (e) {
                     console.warn("Could not instantiate named database, falling back to default:", e);
                 }
             }
-            return (typeof appInstance.firestore === 'function') ? appInstance.firestore() : null;
+            if (!fs) {
+                fs = (typeof appInstance.firestore === 'function') ? appInstance.firestore() : null;
+            }
+            if (fs && typeof fs.settings === 'function') {
+                try {
+                    fs.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+                } catch (e) {
+                    // Settings already configured or immutable
+                }
+            }
+            return fs;
         }
 
         let activeDbListeners = [];
@@ -4727,15 +4954,6 @@
                 activeDbListeners = [];
             }
         }
-
-        const DEFAULT_FIREBASE_CONFIG = {
-            apiKey: "AIzaSyCBP7I0_I_ly8MynxLmE7LjUQnTzm5HXDs",
-            authDomain: "gen-lang-client-0408655533.firebaseapp.com",
-            projectId: "gen-lang-client-0408655533",
-            storageBucket: "gen-lang-client-0408655533.firebasestorage.app",
-            appId: "1:113396905394:web:feaca7c9b2a7700467e0ab",
-            firestoreDatabaseId: "ai-studio-48f55087-ae5a-4ab3-b4c4-0a15286e9759"
-        };
 
         async function initFirebase() {
             let config = {
@@ -4762,6 +4980,11 @@
                         };
                     }
                 } catch (e) { console.warn("Could not load /firebase-applet-config.json:", e); }
+            }
+
+            // Ensure gen-lang-client-0408655533 always resolves to its named database, not '(default)' which does not exist
+            if ((!config.firestoreDatabaseId || config.firestoreDatabaseId === '(default)') && config.projectId === 'gen-lang-client-0408655533') {
+                config.firestoreDatabaseId = DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId || 'ai-studio-48f55087-ae5a-4ab3-b4c4-0a15286e9759';
             }
 
             if (config.apiKey) localStorage.setItem('fb-apiKey', config.apiKey);
@@ -4801,14 +5024,28 @@
                 }
                 db = getFirestoreInstance(firebaseApp, config.firestoreDatabaseId);
                 storage = firebaseApp.storage();
-                // Test connection directly with shared appSettings doc
-                await db.collection('config').doc('appSettings').get();
-                updateFirebaseStatus('connected', 'Firebase: Connected');
+
                 clearActiveDbListeners();
+
+                // Non-blocking background connectivity probe (won't crash initialization if offline or slow)
+                db.collection('config').doc('appSettings').get().then(doc => {
+                    const fromCache = doc.metadata && doc.metadata.fromCache;
+                    updateFirebaseStatus('connected', fromCache ? 'Firebase: Connected (Offline Cache)' : 'Firebase: Connected');
+                }).catch(err => {
+                    console.warn("Initial Firestore server ping:", err?.message || err);
+                    if (typeof dictionary !== 'undefined' && dictionary && dictionary.length > 0) {
+                        updateFirebaseStatus('connected', 'Firebase: Offline Mode (Cached)');
+                    } else {
+                        updateFirebaseStatus('connecting', 'Firebase: Offline / Connecting...');
+                    }
+                });
 
                 const unsubDict = db.collection('dictionary').onSnapshot(snapshot => {
                     if (snapshot.metadata && snapshot.metadata.hasPendingWrites) {
                         return; // Ignore local pending write triggers to prevent recursive write streams
+                    }
+                    if (!snapshot.metadata || !snapshot.metadata.fromCache) {
+                        updateFirebaseStatus('connected', 'Firebase: Connected');
                     }
                     const newDict = [];
                     const bloatedDocsToPrune = [];
@@ -4890,6 +5127,9 @@
                 activeDbListeners.push(unsubKeys);
 
                 const unsubSettings = db.collection('config').doc('appSettings').onSnapshot(doc => {
+                    if (doc.metadata && !doc.metadata.fromCache) {
+                        updateFirebaseStatus('connected', 'Firebase: Connected');
+                    }
                     if (doc.exists) {
                         if (doc.metadata && doc.metadata.hasPendingWrites) {
                             return; // Skip local pending writes to avoid write-feedback loops
@@ -4947,6 +5187,11 @@
                             const el = document.getElementById('webhook-url-input');
                             if (el) el.value = data.webhookUrl;
                         }
+                        if (data.webhookDisconnectUrl !== undefined) {
+                            localStorage.setItem('webhook-disconnect-url', data.webhookDisconnectUrl);
+                            const el = document.getElementById('webhook-disconnect-url-input');
+                            if (el) el.value = data.webhookDisconnectUrl;
+                        }
                         if (data.webhookEnabled !== undefined) {
                             localStorage.setItem('webhook-enabled', data.webhookEnabled);
                             const el = document.getElementById('webhook-enabled-toggle');
@@ -4961,6 +5206,16 @@
                             localStorage.setItem('webhook-notify-solved', data.webhookNotifySolved);
                             const el = document.getElementById('webhook-notify-solved-toggle');
                             if (el) el.checked = data.webhookNotifySolved;
+                        }
+                        if (data.webhookMention !== undefined) {
+                            localStorage.setItem('webhook-mention', data.webhookMention);
+                            const el = document.getElementById('webhook-mention-input');
+                            if (el) el.value = data.webhookMention;
+                        }
+                        if (data.webhookNotifyDisconnect !== undefined) {
+                            localStorage.setItem('webhook-notify-disconnect', data.webhookNotifyDisconnect);
+                            const el = document.getElementById('webhook-notify-disconnect-toggle');
+                            if (el) el.checked = data.webhookNotifyDisconnect;
                         }
                         updateWebhookUIState();
                         if (data.dailyResetConfig && typeof data.dailyResetConfig === 'object') {
@@ -4987,7 +5242,10 @@
                         }
                     }
                 }, err => {
-                    console.warn("appSettings listener error:", err?.message || err);
+                    console.warn("appSettings listener warning/offline:", err?.message || err);
+                    if (err?.code === 'unavailable' || (err?.message && err.message.toLowerCase().includes('offline'))) {
+                        updateFirebaseStatus('disconnected', 'Firebase: Offline Mode');
+                    }
                 });
                 activeDbListeners.push(unsubSettings);
 
@@ -5051,8 +5309,11 @@
             const storageBucket = document.getElementById('fb-storageBucket').value.trim();
             const appId = document.getElementById('fb-appId').value.trim();
             let databaseId = (document.getElementById('fb-databaseId')?.value || '').trim();
-            if (!databaseId) databaseId = (projectId === 'gen-lang-client-0408655533') ? 'ai-studio-48f55087-ae5a-4ab3-b4c4-0a15286e9759' : '(default)';
-            if (projectId !== 'gen-lang-client-0408655533' && databaseId === 'ai-studio-48f55087-ae5a-4ab3-b4c4-0a15286e9759') databaseId = '(default)';
+            if (projectId === 'gen-lang-client-0408655533' && (!databaseId || databaseId === '(default)')) {
+                databaseId = 'ai-studio-48f55087-ae5a-4ab3-b4c4-0a15286e9759';
+            } else if (!databaseId) {
+                databaseId = '(default)';
+            }
             if (!apiKey || !projectId) { alert("API Key and Project ID are required."); return; }
             localStorage.setItem('fb-apiKey', apiKey);
             localStorage.setItem('fb-authDomain', authDomain);
@@ -5072,9 +5333,15 @@
                 }
                 db = getFirestoreInstance(firebaseApp, databaseId);
                 storage = firebaseApp.storage();
-                await db.collection('dictionary').limit(1).get();
-                updateFirebaseStatus('connected', 'Firebase: Connected Successfully!');
-                alert("Firebase connected successfully!");
+                try {
+                    await db.collection('dictionary').limit(1).get();
+                    updateFirebaseStatus('connected', 'Firebase: Connected Successfully!');
+                    alert("Firebase connected successfully!");
+                } catch (probeErr) {
+                    console.warn("Direct probe offline or slow:", probeErr);
+                    updateFirebaseStatus('connecting', 'Firebase: Config Saved (Syncing...)');
+                    alert("Firebase configuration saved! Client will sync when backend is reached.");
+                }
                 location.reload();
             } catch (e) {
                 updateFirebaseStatus('error', 'Firebase: Connection Failed');
@@ -5202,25 +5469,111 @@
             } catch (e) { toast.remove(); showToast("Failed to remove key", "error"); }
         }
 
+        async function callGeminiDirectRest(apiKey, contentsPayload) {
+            if (!apiKey) return { success: false, reason: 'no_key', message: 'No API key provided' };
+            const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+            let lastReason = 'unknown';
+            let lastMessage = '';
+
+            const payloadContents = Array.isArray(contentsPayload) ? contentsPayload : [contentsPayload];
+
+            for (const model of modelsToTry) {
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+                    const res = await fetch(url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            contents: payloadContents,
+                            generationConfig: { temperature: 0.1 }
+                        })
+                    });
+
+                    const data = await res.json().catch(() => ({}));
+                    if (res.ok) {
+                        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+                        if (text) {
+                            return { success: true, text, model };
+                        }
+                    }
+
+                    const errorObj = data?.error || {};
+                    const errorMsg = errorObj.message || "";
+                    const errorReason = errorObj.details?.[0]?.reason || "";
+                    const status = res.status;
+
+                    if (status === 429 || errorReason === 'RATE_LIMIT_EXCEEDED' || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("quota") || errorMsg.includes("429")) {
+                        lastReason = 'quota_exhausted';
+                        lastMessage = errorMsg || 'Rate limit / Free tier quota reached';
+                        continue;
+                    }
+
+                    if (status === 403 || errorReason === 'ACCESS_TOKEN_SCOPE_INSUFFICIENT' || errorMsg.includes("PERMISSION_DENIED") || errorMsg.includes("does not have permission")) {
+                        lastReason = 'permission_denied';
+                        lastMessage = errorMsg || '403: Permission denied (Check Generative Language API in Cloud Console)';
+                        break;
+                    }
+
+                    if (status === 400 && (errorReason === 'API_KEY_INVALID' || errorMsg.includes("API key not valid") || errorMsg.includes("API_KEY_INVALID"))) {
+                        lastReason = 'invalid_key';
+                        lastMessage = errorMsg || 'API key is not valid';
+                        break;
+                    }
+
+                    if (status === 404) {
+                        lastReason = 'model_not_found';
+                        lastMessage = errorMsg || 'Model not found';
+                        continue;
+                    }
+
+                    lastReason = 'error';
+                    lastMessage = errorMsg || `HTTP ${status}`;
+                } catch (netErr) {
+                    lastReason = 'network_error';
+                    lastMessage = (netErr && netErr.message) ? netErr.message : 'Network error';
+                }
+            }
+
+            return { success: false, reason: lastReason, message: lastMessage };
+        }
+
         async function testGeminiKey(index) {
             const key = geminiKeys[index];
             if (!key) return;
             const toast = showToast("Testing key...", "syncing", 0);
             try {
-                const res = await fetch("/api/gemini/solve", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        apiKey: key,
-                        contents: [{ parts: [{ text: "ping" }] }]
-                    })
-                });
+                let data = null;
+
+                // 1. Try server endpoint first (when running with server.ts in AI Studio or Vercel serverless)
+                try {
+                    const res = await fetch("/api/gemini/solve", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            apiKey: key,
+                            contents: [{ parts: [{ text: "ping" }] }]
+                        })
+                    });
+                    if (res.ok) {
+                        const parsed = await res.json().catch(() => null);
+                        if (parsed && typeof parsed === 'object' && (parsed.success || parsed.reason)) {
+                            data = parsed;
+                        }
+                    }
+                } catch {
+                    // Server endpoint unreachable (e.g. static host on Vercel)
+                }
+
+                // 2. Direct client-side test (zero server dependency; works 100% on Vercel free hosting)
+                if (!data) {
+                    data = await callGeminiDirectRest(key, [{ parts: [{ text: "ping" }] }]);
+                }
+
                 toast.remove();
-                const data = await res.json().catch(() => ({}));
                 if (data.success && data.text) {
                     geminiKeyStatusMap.set(key, "Valid");
                     geminiKeyCooldownMap.delete(key);
-                    showToast("Key verified and working!", "success", 2000);
+                    showToast("Key verified and working!", "success", 2500);
                 } else if (data.reason === 'quota_exhausted') {
                     geminiKeyStatusMap.set(key, "Quota Limit (429)");
                     geminiKeyCooldownMap.set(key, Date.now() + 60000);
@@ -5229,14 +5582,18 @@
                     geminiKeyStatusMap.set(key, "Permission Denied (403)");
                     geminiKeyCooldownMap.set(key, Date.now() + 86400000);
                     showToast("403: No permission (Check Generative Language API in Cloud Console)", "error", 4000);
+                } else if (data.reason === 'invalid_key') {
+                    geminiKeyStatusMap.set(key, "Invalid Key");
+                    geminiKeyCooldownMap.set(key, Date.now() + 86400000);
+                    showToast("Invalid API Key: Please check your key in Google AI Studio", "error", 4000);
                 } else {
                     geminiKeyStatusMap.set(key, "Notice");
-                    showToast("Notice: " + (data.message || "Key could not be verified"), "warning", 3000);
+                    showToast("Notice: " + (data.message || "Key could not be verified"), "warning", 3500);
                 }
                 renderGeminiKeys();
-            } catch {
+            } catch (err) {
                 toast.remove();
-                showToast("Request failed", "error");
+                showToast("Request failed: " + (err?.message || "Unknown error"), "error");
             }
         }
 
@@ -6385,83 +6742,59 @@ Example: 132`;
             for (let apiKey of activeKeys) {
                 try {
                     let text = "";
-                    let serverHandled = false;
 
-                    // 1. Try server-side proxy endpoint
+                    // 1. Try server-side proxy endpoint first (AI Studio dev or Vercel serverless)
                     try {
                         const res = await fetch("/api/gemini/solve", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ contents, apiKey })
                         });
-                        serverHandled = true;
-                        const data = await res.json().catch(() => ({}));
-                        if (data.success && data.text) {
-                            text = data.text.trim();
-                            if (apiKey) geminiKeyStatusMap.set(apiKey, "Valid");
-                        } else if (data.reason === 'quota_exhausted') {
-                            if (apiKey) {
-                                geminiKeyCooldownMap.set(apiKey, Date.now() + 60000);
-                                geminiKeyStatusMap.set(apiKey, "Quota Limit (429)");
+                        if (res.ok) {
+                            const data = await res.json().catch(() => null);
+                            if (data && data.success && data.text) {
+                                text = data.text.trim();
+                                if (apiKey) geminiKeyStatusMap.set(apiKey, "Valid");
+                            } else if (data && data.reason === 'quota_exhausted') {
+                                if (apiKey) {
+                                    geminiKeyCooldownMap.set(apiKey, Date.now() + 60000);
+                                    geminiKeyStatusMap.set(apiKey, "Quota Limit (429)");
+                                }
+                                if (debugContent) debugContent.innerHTML += `<div style="padding:4px 8px; background:rgba(234,179,8,0.15); border:1px solid rgba(234,179,8,0.3); border-radius:4px; font-size:9px; margin-top:4px; color:#facc15">Gemini quota limit reached (Free tier). Smart local solver active.</div>`;
+                                continue;
+                            } else if (data && data.reason === 'permission_denied') {
+                                if (apiKey) {
+                                    geminiKeyCooldownMap.set(apiKey, Date.now() + 86400000);
+                                    geminiKeyStatusMap.set(apiKey, "Permission Denied (403)");
+                                }
+                                if (debugContent) debugContent.innerHTML += `<div style="padding:4px 8px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); border-radius:4px; font-size:9px; margin-top:4px; color:#f87171">Gemini Key permission denied (403). Using local solver.</div>`;
+                                continue;
                             }
-                            if (debugContent) debugContent.innerHTML += `<div style="padding:4px 8px; background:rgba(234,179,8,0.15); border:1px solid rgba(234,179,8,0.3); border-radius:4px; font-size:9px; margin-top:4px; color:#facc15">Gemini quota limit reached (Free tier). Smart local solver active.</div>`;
-                            continue;
-                        } else if (data.reason === 'permission_denied') {
-                            if (apiKey) {
-                                geminiKeyCooldownMap.set(apiKey, Date.now() + 86400000);
-                                geminiKeyStatusMap.set(apiKey, "Permission Denied (403)");
-                            }
-                            if (debugContent) debugContent.innerHTML += `<div style="padding:4px 8px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); border-radius:4px; font-size:9px; margin-top:4px; color:#f87171">Gemini Key permission denied (403). Using local solver.</div>`;
-                            continue;
-                        } else {
-                            if (apiKey) geminiKeyStatusMap.set(apiKey, "Notice");
                         }
                     } catch {
-                        // Server endpoint unreachable
+                        // Server endpoint unreachable (e.g. running on Vercel static hosting)
                     }
 
-                    // 2. Client-side fallback if server was unreachable and apiKey is provided
-                    if (!serverHandled && apiKey) {
+                    // 2. Direct client-side Gemini call (zero server dependency; works 100% on Vercel free hosting)
+                    if (!text && apiKey) {
                         try {
-                            const { GoogleGenAI } = await import("https://esm.sh/@google/genai");
-                            const ai = new GoogleGenAI({ apiKey });
-                            let response;
-                            try {
-                                response = await ai.models.generateContent({
-                                    model: "gemini-3.8-flash",
-                                    contents: [contents],
-                                    config: { temperature: 0.1 }
-                                });
-                            } catch (mErr) {
-                                const mErrStr = (mErr && mErr.message) ? mErr.message : String(mErr);
-                                if (mErrStr.includes("resource_exhausted") || mErrStr.includes("429") || mErrStr.includes("quota")) {
-                                    console.warn("Gemini key quota exhausted/rate limited. Placing in 3-min cooldown.");
-                                    geminiKeyCooldownMap.set(apiKey, Date.now() + 180000);
-                                    geminiKeyStatusMap.set(apiKey, "Quota Limit (429)");
-                                    continue;
-                                }
-                                response = await ai.models.generateContent({
-                                    model: "gemini-flash-latest",
-                                    contents: [contents],
-                                    config: { temperature: 0.1 }
-                                });
-                            }
-                            text = response.text ? response.text.trim() : "";
-                        } catch (clientErr) {
-                            const clientErrStr = (clientErr && clientErr.message) ? clientErr.message : String(clientErr);
-                            if (clientErrStr.includes("resource_exhausted") || clientErrStr.includes("429") || clientErrStr.includes("quota")) {
-                                console.warn("Gemini key quota exhausted:", apiKey.substring(0, 8) + "...");
-                                geminiKeyCooldownMap.set(apiKey, Date.now() + 180000);
+                            const directRes = await callGeminiDirectRest(apiKey, contents);
+                            if (directRes.success && directRes.text) {
+                                text = directRes.text.trim();
+                                geminiKeyStatusMap.set(apiKey, "Valid");
+                            } else if (directRes.reason === 'quota_exhausted') {
+                                geminiKeyCooldownMap.set(apiKey, Date.now() + 60000);
                                 geminiKeyStatusMap.set(apiKey, "Quota Limit (429)");
-                            } else if (clientErrStr.includes("PERMISSION_DENIED") || clientErrStr.includes("403") || clientErrStr.includes("does not have permission")) {
-                                console.warn("Gemini key permission denied:", apiKey.substring(0, 8) + "...");
+                                if (debugContent) debugContent.innerHTML += `<div style="padding:4px 8px; background:rgba(234,179,8,0.15); border:1px solid rgba(234,179,8,0.3); border-radius:4px; font-size:9px; margin-top:4px; color:#facc15">Gemini quota limit reached. Smart local solver active.</div>`;
+                                continue;
+                            } else if (directRes.reason === 'permission_denied') {
                                 geminiKeyCooldownMap.set(apiKey, Date.now() + 86400000);
                                 geminiKeyStatusMap.set(apiKey, "Permission Denied (403)");
                                 if (debugContent) debugContent.innerHTML += `<div style="padding:4px 8px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); border-radius:4px; font-size:9px; margin-top:4px; color:#f87171">Gemini Key permission denied (403). Using local solver.</div>`;
-                            } else {
-                                console.warn("Gemini client fallback notice:", clientErrStr);
+                                continue;
                             }
-                            continue;
+                        } catch (directErr) {
+                            console.warn("Direct Gemini call error:", directErr);
                         }
                     }
 
@@ -7571,15 +7904,158 @@ Example: 132`;
         let activeBatchEditingIndex = -1;
         let batchEditDraft = null;
 
+        const BATCH_IDB_NAME = 'QuizSolverDB';
+        const BATCH_IDB_STORE = 'batchQueueStore';
+        const BATCH_IDB_KEY = 'activeQueue';
+
+        function openBatchDB() {
+            return new Promise((resolve, reject) => {
+                if (typeof window === 'undefined' || !window.indexedDB) {
+                    return reject(new Error("IndexedDB not available"));
+                }
+                const req = window.indexedDB.open(BATCH_IDB_NAME, 1);
+                req.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(BATCH_IDB_STORE)) {
+                        db.createObjectStore(BATCH_IDB_STORE);
+                    }
+                };
+                req.onsuccess = (e) => resolve(e.target.result);
+                req.onerror = (e) => reject(e.target.error || new Error("IDB open failed"));
+            });
+        }
+
+        async function saveBatchQueueToStorage() {
+            try {
+                const pendingItems = batchQueue.filter(item => item && item.status === 'pending');
+                const db = await openBatchDB();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(BATCH_IDB_STORE, 'readwrite');
+                    const store = tx.objectStore(BATCH_IDB_STORE);
+                    const req = store.put(pendingItems, BATCH_IDB_KEY);
+                    req.onsuccess = () => {
+                        updateBatchContinueUI();
+                        resolve();
+                    };
+                    req.onerror = () => {
+                        updateBatchContinueUI();
+                        reject(req.error);
+                    };
+                });
+            } catch (err) {
+                console.warn("Could not save batch queue to IndexedDB:", err);
+                updateBatchContinueUI();
+            }
+        }
+
+        async function loadBatchQueueFromStorage() {
+            try {
+                const db = await openBatchDB();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(BATCH_IDB_STORE, 'readonly');
+                    const store = tx.objectStore(BATCH_IDB_STORE);
+                    const req = store.get(BATCH_IDB_KEY);
+                    req.onsuccess = () => {
+                        const data = req.result;
+                        if (Array.isArray(data) && data.length > 0) {
+                            batchQueue = data;
+                        }
+                        updateBatchContinueUI();
+                        resolve(batchQueue);
+                    };
+                    req.onerror = () => {
+                        updateBatchContinueUI();
+                        reject(req.error);
+                    };
+                });
+            } catch (err) {
+                console.warn("Could not load batch queue from IndexedDB:", err);
+                updateBatchContinueUI();
+                return [];
+            }
+        }
+
+        async function clearBatchQueueStorage() {
+            try {
+                const db = await openBatchDB();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(BATCH_IDB_STORE, 'readwrite');
+                    const store = tx.objectStore(BATCH_IDB_STORE);
+                    const req = store.delete(BATCH_IDB_KEY);
+                    req.onsuccess = () => {
+                        updateBatchContinueUI();
+                        resolve();
+                    };
+                    req.onerror = () => reject(req.error);
+                });
+            } catch (err) {
+                console.warn("Could not clear batch queue in IndexedDB:", err);
+            }
+        }
+
+        function updateBatchContinueUI() {
+            const pending = batchQueue.filter(item => item && item.status === 'pending');
+            const count = pending.length;
+            const banner = document.getElementById('batch-resume-banner');
+            const textEl = document.getElementById('batch-resume-text');
+            const badgeEl = document.getElementById('batch-pending-badge');
+
+            if (banner) {
+                if (count > 0) {
+                    banner.style.display = 'flex';
+                    if (textEl) {
+                        textEl.innerText = `Unfinished Batch: ${count} screenshot${count === 1 ? '' : 's'} waiting`;
+                    }
+                } else {
+                    banner.style.display = 'none';
+                }
+            }
+
+            if (badgeEl) {
+                if (count > 0) {
+                    badgeEl.style.display = 'inline-block';
+                    badgeEl.innerText = count;
+                } else {
+                    badgeEl.style.display = 'none';
+                }
+            }
+        }
+
+        function continueBatchReview() {
+            const pending = batchQueue.filter(item => item && item.status === 'pending');
+            if (pending.length === 0) {
+                showToast("No unfinished batch screenshots found. Use Batch Upload to add new screenshots.", "info", 2500);
+                return;
+            }
+            openBatchModal();
+            showToast(`Resumed batch review (${pending.length} remaining)`, "info", 2000);
+        }
+
+        async function clearPendingBatch() {
+            const pending = batchQueue.filter(item => item && item.status === 'pending');
+            if (pending.length === 0) return;
+            if (!confirm(`Discard the remaining ${pending.length} batch screenshot(s)?`)) return;
+            batchQueue = [];
+            await clearBatchQueueStorage();
+            updateBatchContinueUI();
+            renderBatchCards();
+            showToast("Unfinished batch discarded", "info", 2000);
+        }
+
         function openBatchModal() {
             const modal = document.getElementById('batch-review-modal');
             if (modal) modal.style.display = 'flex';
             renderBatchCards();
         }
 
-        function closeBatchModal() {
+        function closeBatchModal(isPause = false) {
             const modal = document.getElementById('batch-review-modal');
             if (modal) modal.style.display = 'none';
+            saveBatchQueueToStorage();
+            const pending = batchQueue.filter(item => item && item.status === 'pending');
+            if (isPause && pending.length > 0) {
+                showToast(`Progress saved! ${pending.length} screenshot${pending.length === 1 ? '' : 's'} remaining. Click "Continue Entry" anytime to resume.`, "info", 3500);
+            }
         }
 
         async function matchAnswerToDictionary(answerDataUrl) {
@@ -7835,6 +8311,7 @@ Example: 132`;
                 if (subTitle) subTitle.innerText = `Confirm or Edit each card in the stack below.`;
                 batchQueue.push(...processedItems);
                 isBatchProcessing = false;
+                saveBatchQueueToStorage();
                 renderBatchCards();
             }, 350);
         }
@@ -7869,6 +8346,7 @@ Example: 132`;
                         <div>All batch screenshots have been reviewed and processed.</div>
                     </div>
                 `;
+                clearBatchQueueStorage();
                 return;
             }
 
@@ -8114,6 +8592,7 @@ Example: 132`;
 
                 // Remove from stack (pop)
                 batchQueue.splice(index, 1);
+                saveBatchQueueToStorage();
                 renderBatchCards();
                 renderDictionary();
 
@@ -8139,6 +8618,7 @@ Example: 132`;
             const realIdx = batchQueue.indexOf(item);
             batchQueue.splice(realIdx, 1);
             batchQueue.push(item);
+            saveBatchQueueToStorage();
             renderBatchCards();
             showToast("Skipped to end of stack", "info", 1200);
         }
@@ -8149,6 +8629,7 @@ Example: 132`;
             const item = pending[0];
             const realIdx = batchQueue.indexOf(item);
             batchQueue.splice(realIdx, 1);
+            saveBatchQueueToStorage();
             renderBatchCards();
             showToast("Card discarded", "info", 1500);
         }
@@ -8184,6 +8665,7 @@ Example: 132`;
                         }
                     }
                 }
+                saveBatchQueueToStorage();
                 renderBatchCards();
                 showToast(`Stack auto-matched with Smart Dictionary!`, "success", 2000);
             } catch (err) {
@@ -8419,6 +8901,7 @@ Example: 132`;
             if (!item) return;
 
             item.answerCrops = safeClone(batchEditDraft.answerCrops);
+            saveBatchQueueToStorage();
 
             closeBatchEditModal();
             renderBatchCards();
