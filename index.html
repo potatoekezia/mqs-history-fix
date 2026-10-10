@@ -5442,6 +5442,33 @@
 
         let geminiKeyCooldownMap = new Map();
         let geminiKeyStatusMap = new Map();
+        try {
+            const savedCooldowns = JSON.parse(localStorage.getItem('gemini_key_cooldowns') || '{}');
+            const now = Date.now();
+            for (let [k, exp] of Object.entries(savedCooldowns)) {
+                if (exp > now) geminiKeyCooldownMap.set(k, exp);
+            }
+            const savedStatuses = JSON.parse(localStorage.getItem('gemini_key_statuses') || '{}');
+            for (let [k, st] of Object.entries(savedStatuses)) {
+                geminiKeyStatusMap.set(k, st);
+            }
+        } catch {}
+
+        function persistGeminiKeyStates() {
+            try {
+                const now = Date.now();
+                const cooldownObj = {};
+                for (let [k, exp] of geminiKeyCooldownMap.entries()) {
+                    if (exp > now) cooldownObj[k] = exp;
+                }
+                localStorage.setItem('gemini_key_cooldowns', JSON.stringify(cooldownObj));
+                const statusObj = {};
+                for (let [k, st] of geminiKeyStatusMap.entries()) {
+                    statusObj[k] = st;
+                }
+                localStorage.setItem('gemini_key_statuses', JSON.stringify(statusObj));
+            } catch {}
+        }
 
         async function verifyGeminiApiKey(key) {
             if (!key || typeof key !== 'string') {
@@ -5584,15 +5611,18 @@
             } catch (e) { toast.remove(); showToast("Failed to remove key", "error"); }
         }
 
-        async function callGeminiDirectRest(apiKey, contentsPayload) {
+        async function callGeminiDirectRest(apiKey, contentsPayload, timeoutMs = 4500) {
             if (!apiKey) return { success: false, reason: 'no_key', message: 'No API key provided' };
-            const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+            const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
             let lastReason = 'unknown';
             let lastMessage = '';
 
             const payloadContents = Array.isArray(contentsPayload) ? contentsPayload : [contentsPayload];
 
             for (const model of modelsToTry) {
+                const controller = new AbortController();
+                const timeoutTimer = setTimeout(() => controller.abort(), timeoutMs);
+
                 try {
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
                     const res = await fetch(url, {
@@ -5601,8 +5631,10 @@
                         body: JSON.stringify({
                             contents: payloadContents,
                             generationConfig: { temperature: 0.1 }
-                        })
+                        }),
+                        signal: controller.signal
                     });
+                    clearTimeout(timeoutTimer);
 
                     const data = await res.json().catch(() => ({}));
                     if (res.ok) {
@@ -5620,7 +5652,9 @@
                     if (status === 429 || errorReason === 'RATE_LIMIT_EXCEEDED' || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("quota") || errorMsg.includes("429")) {
                         lastReason = 'quota_exhausted';
                         lastMessage = errorMsg || 'Rate limit / Free tier quota reached';
-                        continue;
+                        // Google Cloud quotas are per-key/per-project. Trying more models on the same exhausted key wastes seconds.
+                        // Break immediately so solver can rotate to next key.
+                        break;
                     }
 
                     if (status === 403 || errorReason === 'ACCESS_TOKEN_SCOPE_INSUFFICIENT' || errorMsg.includes("PERMISSION_DENIED") || errorMsg.includes("does not have permission")) {
@@ -5644,6 +5678,12 @@
                     lastReason = 'error';
                     lastMessage = errorMsg || `HTTP ${status}`;
                 } catch (netErr) {
+                    clearTimeout(timeoutTimer);
+                    if (netErr?.name === 'AbortError') {
+                        lastReason = 'timeout';
+                        lastMessage = `Request timed out (${timeoutMs}ms)`;
+                        continue;
+                    }
                     lastReason = 'network_error';
                     lastMessage = (netErr && netErr.message) ? netErr.message : 'Network error';
                 }
@@ -6731,14 +6771,17 @@
             if (availableKeys.length === 0 && envKey) availableKeys.push(envKey);
             if (availableKeys.length === 0) availableKeys.push(""); // Server fallback
 
-            // Filter out keys currently on cooldown due to quota exhaustion or permission denial
+            // 1. Filter out keys currently on cooldown, invalid, or permission denied (prevents testing dead keys)
             const now = Date.now();
             const activeKeys = availableKeys.filter(k => {
                 if (!k) return true; // Server default key
+                const st = geminiKeyStatusMap.get(k);
+                if (st && (st.includes('403') || st.includes('Denied') || st.includes('Invalid'))) return false;
                 const expiry = geminiKeyCooldownMap.get(k);
                 if (!expiry) return true;
                 if (now > expiry) {
                     geminiKeyCooldownMap.delete(k);
+                    persistGeminiKeyStates();
                     return true;
                 }
                 return false;
@@ -6749,7 +6792,25 @@
                 return "000";
             }
 
+            // 2. Prioritize active keys: valid keys first!
+            activeKeys.sort((a, b) => {
+                const aValid = (geminiKeyStatusMap.get(a) === 'Valid') ? 1 : 0;
+                const bValid = (geminiKeyStatusMap.get(b) === 'Valid') ? 1 : 0;
+                return bValid - aValid;
+            });
+
+            // 3. Compact high-speed payload (Standardized comparison grid + individual crops)
             const contents = { parts: [] };
+
+            // Grid layout: Row 1 = Targets 1-3, Row 2 = Answer Choices 1-4
+            try {
+                const cleanGridData = await createCleanQuizGrid(targets, answers);
+                contents.parts.push({ text: `STANDARDIZED QUIZ LAYOUT (Row 1: Targets 1-3 | Row 2: Choices 1-4):` });
+                contents.parts.push({ inlineData: { mimeType: "image/png", data: cleanGridData.split(',')[1] } });
+            } catch (e) {
+                contents.parts.push({ text: `FULL SCREENSHOT FOR CONTEXT:` });
+                contents.parts.push({ inlineData: { mimeType: "image/png", data: screenshot.split(',')[1] } });
+            }
 
             targets.forEach((target, i) => {
                 contents.parts.push({ text: `TARGET ${i + 1}:` });
@@ -6760,17 +6821,6 @@
                 contents.parts.push({ text: `ANSWER CHOICE ${i + 1}:` });
                 contents.parts.push({ inlineData: { mimeType: "image/png", data: ans.data.split(',')[1] } });
             });
-
-            // Generate clean, normalized quiz grid (removes mobile vs pc aspect ratio differences)
-            try {
-                const cleanGridData = await createCleanQuizGrid(targets, answers);
-                contents.parts.push({ text: `STANDARDIZED QUIZ LAYOUT (Row 1: Targets 1-3 | Row 2: Choices 1-4):` });
-                contents.parts.push({ inlineData: { mimeType: "image/png", data: cleanGridData.split(',')[1] } });
-            } catch (e) {
-                // Fallback to screenshot if grid fails
-                contents.parts.push({ text: `FULL SCREENSHOT FOR CONTEXT:` });
-                contents.parts.push({ inlineData: { mimeType: "image/png", data: screenshot.split(',')[1] } });
-            }
 
             let lockInstructions = "";
             if (lockedResults.length > 0) {
@@ -6789,17 +6839,10 @@
                     let ctx = `Target ${res.targetIndex + 1} is identified as "${res.entry.name}".`;
                     if (res.answerIndex) ctx += ` Suggested answer: ${res.answerIndex}.`;
                     contents.parts.push({ text: ctx });
-                    if (res.entry.answers && res.entry.answers.length > 0) {
-                        contents.parts.push({ text: `Known appearances for ${res.entry.name}:` });
-                        res.entry.answers.slice(0, 3).forEach(ans => {
-                            const src = typeof ans === 'string' ? ans : (ans.data || "");
-                            if (src) contents.parts.push({ inlineData: { mimeType: "image/png", data: src.split(',')[1] } });
-                        });
-                    }
                 });
             }
 
-            // ── FIXED: better Gemini prompt ──
+            // High-accuracy prompt
             const prompt = `You are solving a monster matching quiz.
 
 TASK: Match each TARGET monster image to its corresponding ANSWER CHOICE.
@@ -6823,65 +6866,78 @@ Example: 132`;
 
             contents.parts.push({ text: prompt });
 
-            activeKeys.sort(() => Math.random() - 0.5);
-
+            // 4. Fast-path key rotation: direct client call to Google CDN first (fastest: ~1.0-1.5s)
             for (let apiKey of activeKeys) {
                 try {
                     let text = "";
 
-                    // 1. Try server-side proxy endpoint first (AI Studio dev or Vercel serverless)
-                    try {
-                        const res = await fetch("/api/gemini/solve", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ contents, apiKey })
-                        });
-                        if (res.ok) {
-                            const data = await res.json().catch(() => null);
-                            if (data && data.success && data.text) {
-                                text = data.text.trim();
-                                if (apiKey) geminiKeyStatusMap.set(apiKey, "Valid");
-                            } else if (data && data.reason === 'quota_exhausted') {
-                                if (apiKey) {
-                                    geminiKeyCooldownMap.set(apiKey, Date.now() + 60000);
-                                    geminiKeyStatusMap.set(apiKey, "Quota Limit (429)");
-                                }
-                                if (debugContent) debugContent.innerHTML += `<div style="padding:4px 8px; background:rgba(234,179,8,0.15); border:1px solid rgba(234,179,8,0.3); border-radius:4px; font-size:9px; margin-top:4px; color:#facc15">Gemini quota limit reached (Free tier). Smart local solver active.</div>`;
-                                continue;
-                            } else if (data && data.reason === 'permission_denied') {
-                                if (apiKey) {
-                                    geminiKeyCooldownMap.set(apiKey, Date.now() + 86400000);
-                                    geminiKeyStatusMap.set(apiKey, "Permission Denied (403)");
-                                }
-                                if (debugContent) debugContent.innerHTML += `<div style="padding:4px 8px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); border-radius:4px; font-size:9px; margin-top:4px; color:#f87171">Gemini Key permission denied (403). Using local solver.</div>`;
-                                continue;
-                            }
-                        }
-                    } catch {
-                        // Server endpoint unreachable (e.g. running on Vercel static hosting)
-                    }
-
-                    // 2. Direct client-side Gemini call (zero server dependency; works 100% on Vercel free hosting)
-                    if (!text && apiKey) {
+                    if (apiKey) {
                         try {
-                            const directRes = await callGeminiDirectRest(apiKey, contents);
+                            const directRes = await callGeminiDirectRest(apiKey, contents, 4500);
                             if (directRes.success && directRes.text) {
                                 text = directRes.text.trim();
                                 geminiKeyStatusMap.set(apiKey, "Valid");
+                                persistGeminiKeyStates();
                             } else if (directRes.reason === 'quota_exhausted') {
                                 geminiKeyCooldownMap.set(apiKey, Date.now() + 60000);
                                 geminiKeyStatusMap.set(apiKey, "Quota Limit (429)");
-                                if (debugContent) debugContent.innerHTML += `<div style="padding:4px 8px; background:rgba(234,179,8,0.15); border:1px solid rgba(234,179,8,0.3); border-radius:4px; font-size:9px; margin-top:4px; color:#facc15">Gemini quota limit reached. Smart local solver active.</div>`;
+                                persistGeminiKeyStates();
+                                if (debugContent) debugContent.innerHTML += `<div style="padding:4px 8px; background:rgba(234,179,8,0.15); border:1px solid rgba(234,179,8,0.3); border-radius:4px; font-size:9px; margin-top:4px; color:#facc15">Key rate-limited (429). Rotating to next key.</div>`;
                                 continue;
                             } else if (directRes.reason === 'permission_denied') {
                                 geminiKeyCooldownMap.set(apiKey, Date.now() + 86400000);
                                 geminiKeyStatusMap.set(apiKey, "Permission Denied (403)");
-                                if (debugContent) debugContent.innerHTML += `<div style="padding:4px 8px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); border-radius:4px; font-size:9px; margin-top:4px; color:#f87171">Gemini Key permission denied (403). Using local solver.</div>`;
+                                persistGeminiKeyStates();
+                                if (debugContent) debugContent.innerHTML += `<div style="padding:4px 8px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); border-radius:4px; font-size:9px; margin-top:4px; color:#f87171">Key 403 denied. Rotating to next key.</div>`;
+                                continue;
+                            } else if (directRes.reason === 'invalid_key') {
+                                geminiKeyCooldownMap.set(apiKey, Date.now() + 86400000);
+                                geminiKeyStatusMap.set(apiKey, "Invalid Key");
+                                persistGeminiKeyStates();
                                 continue;
                             }
                         } catch (directErr) {
                             console.warn("Direct Gemini call error:", directErr);
                         }
+                    }
+
+                    // Fallback to server endpoint if no custom key or direct call had a network issue
+                    if (!text) {
+                        try {
+                            const controller = new AbortController();
+                            const timer = setTimeout(() => controller.abort(), 4500);
+                            const res = await fetch("/api/gemini/solve", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ contents, apiKey: apiKey || undefined }),
+                                signal: controller.signal
+                            });
+                            clearTimeout(timer);
+                            if (res.ok) {
+                                const data = await res.json().catch(() => null);
+                                if (data && data.success && data.text) {
+                                    text = data.text.trim();
+                                    if (apiKey) {
+                                        geminiKeyStatusMap.set(apiKey, "Valid");
+                                        persistGeminiKeyStates();
+                                    }
+                                } else if (data && data.reason === 'quota_exhausted') {
+                                    if (apiKey) {
+                                        geminiKeyCooldownMap.set(apiKey, Date.now() + 60000);
+                                        geminiKeyStatusMap.set(apiKey, "Quota Limit (429)");
+                                        persistGeminiKeyStates();
+                                    }
+                                    continue;
+                                } else if (data && data.reason === 'permission_denied') {
+                                    if (apiKey) {
+                                        geminiKeyCooldownMap.set(apiKey, Date.now() + 86400000);
+                                        geminiKeyStatusMap.set(apiKey, "Permission Denied (403)");
+                                        persistGeminiKeyStates();
+                                    }
+                                    continue;
+                                }
+                            }
+                        } catch {}
                     }
 
                     if (text) {
