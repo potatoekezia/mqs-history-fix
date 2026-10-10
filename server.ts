@@ -134,8 +134,8 @@ async function startServer() {
     const filtered = list
       .filter(item => item && (item.timestamp || 0) >= oneDayAgo)
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-    if (filtered.length >= 50) {
-      return [];
+    if (filtered.length > 50) {
+      return filtered.slice(0, 50);
     }
     return filtered;
   }

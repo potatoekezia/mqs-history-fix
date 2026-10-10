@@ -7,6 +7,9 @@
     <meta name="description" content="A mobile-friendly tool to solve monster quizzes using image matching and Gemini AI.">
     <meta property="og:title" content="Monster Quiz Solver">
     <meta property="og:description" content="A mobile-friendly tool to solve monster quizzes using image matching and Gemini AI.">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👾</text></svg>">
     <!-- Firebase SDKs -->
     <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -1847,20 +1850,25 @@
             }
         }
 
-        // Deeply sanitizes data payloads for Firestore by stripping undefined values (which Firestore rejects)
+        // Deeply sanitizes data payloads for Firestore by stripping/converting undefined values (which Firestore rejects)
         function cleanForFirestore(obj) {
             if (obj === undefined) return null;
             if (obj === null || typeof obj !== 'object') return obj;
-            if (Array.isArray(obj)) {
-                return obj.map(item => cleanForFirestore(item));
-            }
-            const res = {};
-            for (const [k, v] of Object.entries(obj)) {
-                if (v !== undefined) {
-                    res[k] = cleanForFirestore(v);
+            try {
+                return JSON.parse(JSON.stringify(obj, (key, value) => {
+                    if (value === undefined) return null;
+                    return value;
+                }));
+            } catch (e) {
+                if (Array.isArray(obj)) {
+                    return obj.filter(x => x !== undefined).map(item => cleanForFirestore(item));
                 }
+                const res = {};
+                for (const [k, v] of Object.entries(obj)) {
+                    res[k] = (v === undefined) ? null : cleanForFirestore(v);
+                }
+                return res;
             }
-            return res;
         }
 
         // --- State ---
@@ -1900,7 +1908,13 @@
             ampm: 'AM'
         };
         try {
-            localStorage.removeItem('solver_history_cache');
+            const cachedHistory = localStorage.getItem('solver_history_cache');
+            if (cachedHistory) {
+                const parsed = JSON.parse(cachedHistory);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    solverHistory = parsed;
+                }
+            }
         } catch (e) {}
 
         function loadImage(src) {
@@ -2791,7 +2805,7 @@
                     webhookNotifyDisconnect: document.getElementById('webhook-notify-disconnect-toggle')?.checked ?? true,
                     updatedAt: Date.now()
                 };
-                await db.collection('config').doc('appSettings').set(settings);
+                await db.collection('config').doc('appSettings').set(settings, { merge: true });
                 toast.classList.add('fade-out');
                 setTimeout(() => toast.remove(), 300);
                 showToast("Settings synced", "success");
@@ -4798,6 +4812,11 @@
         }
 
         function renderSolverHistory() {
+            try {
+                if (Array.isArray(solverHistory)) {
+                    localStorage.setItem('solver_history_cache', safeStringify(solverHistory.slice(0, 100)));
+                }
+            } catch (e) {}
             updateSolverUserNameDisplay();
             updateHistoryUserFilterOptions();
             updateHistoryAnalytics();
@@ -4850,6 +4869,7 @@
         async function executeClearSolverHistory() {
             closeClearHistoryModal();
             solverHistory = [];
+            try { localStorage.removeItem('solver_history_cache'); } catch (e) {}
             renderSolverHistory();
 
             // Clear directly in Firebase Firestore across all devices
@@ -8721,18 +8741,55 @@ Example: 132`;
 
                     if (db) {
                         const batch = db.batch();
+                        const payloadsMap = new Map();
+
                         for (let [mId, { entry }] of monsterUpdates.entries()) {
                             const docRef = db.collection('dictionary').doc(mId);
-                            batch.set(docRef, cleanForFirestore({
-                                name: entry.name || 'Unnamed Monster',
-                                targetImage: entry.targetImage || '',
-                                targetHash: entry.targetHash || '',
-                                targetPosition: entry.targetPosition || null,
-                                answers: entry.answers || [],
+                            const cleanAnswers = (Array.isArray(entry.answers) ? entry.answers : []).map(ans => {
+                                if (!ans) return { data: '', hash: '', position: null };
+                                const aData = typeof ans === 'string' ? ans : (typeof ans.data === 'string' ? ans.data : '');
+                                const aHash = typeof ans === 'string' ? '' : (typeof ans.hash === 'string' ? ans.hash : '');
+                                let aPos = null;
+                                if (ans && typeof ans === 'object' && ans.position && typeof ans.position === 'object') {
+                                    aPos = {
+                                        type: String(ans.position.type || 'answer'),
+                                        index: Number(ans.position.index) || 0
+                                    };
+                                }
+                                return { data: aData, hash: aHash, position: aPos };
+                            });
+
+                            let cleanPos = null;
+                            if (entry.targetPosition && typeof entry.targetPosition === 'object' && !entry.targetPosition._delegate) {
+                                cleanPos = {
+                                    x: Number(entry.targetPosition.x) || 0,
+                                    y: Number(entry.targetPosition.y) || 0,
+                                    radius: Number(entry.targetPosition.radius) || 28
+                                };
+                            }
+
+                            const payload = cleanForFirestore({
+                                name: typeof entry.name === 'string' && entry.name ? entry.name : 'Unnamed Monster',
+                                targetImage: typeof entry.targetImage === 'string' ? entry.targetImage : (typeof entry.target === 'string' ? entry.target : ''),
+                                targetHash: typeof entry.targetHash === 'string' ? entry.targetHash : '',
+                                targetPosition: cleanPos,
+                                answers: cleanAnswers,
                                 timestamp: Date.now()
-                            }));
+                            });
+
+                            payloadsMap.set(mId, payload);
+                            batch.set(docRef, payload);
                         }
-                        await batch.commit();
+
+                        try {
+                            await batch.commit();
+                        } catch (batchErr) {
+                            console.warn("WriteBatch commit failed, executing fallback individual set merges:", batchErr);
+                            for (let [mId, payload] of payloadsMap.entries()) {
+                                const docRef = db.collection('dictionary').doc(mId);
+                                await docRef.set(payload, { merge: true });
+                            }
+                        }
                     } else {
                         await saveDictionaryToStorage();
                     }
