@@ -47,6 +47,7 @@ export default async function handler(req: any, res: any) {
         const msg = (err && err.message) ? err.message : String(err);
         const is429 = msg.includes('429') || msg.includes('resource_exhausted') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota');
         const is403 = msg.includes('403') || msg.includes('PERMISSION_DENIED') || msg.includes('does not have permission');
+        const isInvalid = msg.includes('API_KEY_INVALID') || msg.includes('API key not valid') || msg.includes('400') || msg.includes('INVALID_ARGUMENT');
 
         if (is429) {
           lastReason = 'quota_exhausted';
@@ -58,23 +59,33 @@ export default async function handler(req: any, res: any) {
           break;
         }
 
+        if (isInvalid) {
+          lastReason = 'invalid_key';
+          break;
+        }
+
         lastReason = 'error';
         break;
       }
     }
 
+    let failureMessage = 'Gemini rate-limited or unavailable.';
+    if (lastReason === 'invalid_key') failureMessage = 'API key is not valid.';
+    else if (lastReason === 'permission_denied') failureMessage = 'Permission denied (403): Generative Language API disabled or restricted in Cloud Console.';
+    else if (lastReason === 'quota_exhausted') failureMessage = 'Gemini rate-limited or free quota reached (429).';
+
     return res.status(200).json({
       text: '',
       success: false,
       reason: lastReason,
-      message: 'Gemini rate-limited or unavailable; falling back to local solver.',
+      message: failureMessage,
     });
-  } catch {
+  } catch (err: any) {
     return res.status(200).json({
       text: '',
       success: false,
       reason: 'error',
-      message: 'Using local solver fallback.',
+      message: err?.message || 'Gemini solver error.',
     });
   }
 }

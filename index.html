@@ -1316,10 +1316,10 @@
             <h3>Gemini API Key Pool</h3>
             <div id="gemini-key-list" style="margin-bottom:10px"></div>
             <div style="display:flex; gap:8px">
-                <input type="password" id="new-gemini-key" placeholder="Add new API Key" style="margin-bottom:0">
-                <button class="btn" style="width:auto; margin-bottom:0" onclick="addGeminiKey()">Add</button>
+                <input type="password" id="new-gemini-key" placeholder="Add new API Key" style="margin-bottom:0" onkeydown="if(event.key==='Enter') addGeminiKey()">
+                <button id="add-gemini-key-btn" class="btn" style="width:auto; margin-bottom:0" onclick="addGeminiKey()">Add</button>
             </div>
-            <p style="font-size:12px; color:var(--text-secondary); margin-top:8px">Keys are stored in Firebase and rotated automatically.</p>
+            <p style="font-size:12px; color:var(--text-secondary); margin-top:8px">Keys are verified for validity before adding, stored in Firebase, and rotated automatically.</p>
         </div>
 
         <div class="card" style="margin-bottom:16px;">
@@ -5443,25 +5443,140 @@
         let geminiKeyCooldownMap = new Map();
         let geminiKeyStatusMap = new Map();
 
+        async function verifyGeminiApiKey(key) {
+            if (!key || typeof key !== 'string') {
+                return { valid: false, status: 'Invalid Key', reason: 'no_key', message: 'No API key provided' };
+            }
+
+            // 1. Direct client-side test first (gives exact Google error code: 400 Invalid, 403 Permission, 429 Quota)
+            let data = await callGeminiDirectRest(key, [{ parts: [{ text: "ping" }] }]);
+
+            // 2. Fallback to server endpoint only if direct fetch had a network/adblocker error
+            if (data.reason === 'network_error') {
+                try {
+                    const res = await fetch("/api/gemini/solve", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            apiKey: key,
+                            contents: [{ parts: [{ text: "ping" }] }]
+                        })
+                    });
+                    if (res.ok) {
+                        const parsed = await res.json().catch(() => null);
+                        if (parsed && typeof parsed === 'object') {
+                            data = parsed;
+                        }
+                    }
+                } catch {
+                    // Keep network_error
+                }
+            }
+
+            if (data.success && data.text) {
+                return { valid: true, status: "Valid", reason: "valid", message: "Key verified and working!" };
+            } else if (data.reason === 'quota_exhausted') {
+                // Key is authenticated and recognized by Google, just rate-limited
+                return { valid: true, status: "Quota Limit (429)", reason: "quota_exhausted", message: "Key is valid, but currently rate-limited (Wait ~1 min)" };
+            } else if (data.reason === 'permission_denied') {
+                return { valid: false, status: "Permission Denied (403)", reason: "permission_denied", message: "Permission Denied (403): Generative Language API is disabled or restricted in Google Cloud Console." };
+            } else if (data.reason === 'invalid_key') {
+                return { valid: false, status: "Invalid Key", reason: "invalid_key", message: "Invalid API key: Key is not recognized by Google AI Studio. Check that you copied the full key." };
+            } else if (data.reason === 'network_error') {
+                return { valid: false, status: "Network Error", reason: "network_error", message: "Network connection error while testing key." };
+            } else {
+                return { valid: false, status: "Notice", reason: data.reason || 'error', message: data.message || "Key could not be verified by Gemini API." };
+            }
+        }
+
         async function addGeminiKey() {
             const keyInput = document.getElementById('new-gemini-key');
-            const newKey = keyInput.value.trim();
-            if (!newKey) return;
-            if (!db) return alert("Firebase not connected.");
-            const toast = showToast("Adding key...", "syncing", 0);
+            const addBtn = document.getElementById('add-gemini-key-btn') || keyInput?.nextElementSibling;
+            const newKey = (keyInput?.value || '').trim();
+
+            if (!newKey) {
+                showToast("Please enter an API key", "warning", 2500);
+                return;
+            }
+
+            // 1. Duplicate checker: Prevent already existing keys from being added again
+            if (geminiKeys.includes(newKey)) {
+                showToast("This API key is already in the key pool!", "warning", 3500);
+                return;
+            }
+
+            if (!db) {
+                showToast("Firebase not connected. Connect Firebase in Settings first.", "error", 3500);
+                return;
+            }
+
+            // 2. Visual loading state while verifying
+            let origBtnHtml = "";
+            if (addBtn) {
+                origBtnHtml = addBtn.innerHTML;
+                addBtn.disabled = true;
+                addBtn.innerHTML = `<span style="display:inline-block; width:12px; height:12px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite; vertical-align:middle; margin-right:4px"></span> Checking...`;
+            }
+            if (keyInput) keyInput.disabled = true;
+
+            const toast = showToast("Checking key validity with Gemini...", "syncing", 0);
+
             try {
+                // 3. Pre-addition validity checker: Verify key with Gemini API
+                const check = await verifyGeminiApiKey(newKey);
+
+                if (!check.valid) {
+                    toast.remove();
+                    geminiKeyStatusMap.set(newKey, check.status);
+                    showToast(`Cannot add key: ${check.message}`, "error", 5500);
+                    return;
+                }
+
+                // If valid, register status
+                geminiKeyStatusMap.set(newKey, check.status);
+                if (check.reason === 'quota_exhausted') {
+                    geminiKeyCooldownMap.set(newKey, Date.now() + 60000);
+                } else {
+                    geminiKeyCooldownMap.delete(newKey);
+                }
+
                 const updatedKeys = [...geminiKeys, newKey];
                 await db.collection('config').doc('geminiKeys').set({ keys: updatedKeys });
-                toast.classList.add('fade-out'); setTimeout(() => toast.remove(), 300);
-                showToast("Key added to Firebase", "success");
-                keyInput.value = "";
-            } catch (e) { toast.remove(); showToast("Failed to add key", "error"); }
+
+                toast.classList.add('fade-out');
+                setTimeout(() => toast.remove(), 300);
+
+                const successMsg = check.reason === 'quota_exhausted'
+                    ? "Valid key added (currently rate-limited 429)"
+                    : "Key verified and added to pool!";
+                showToast(successMsg, "success", 3000);
+
+                if (keyInput) keyInput.value = "";
+            } catch (e) {
+                toast.remove();
+                showToast("Failed to add key: " + (e?.message || e), "error", 3500);
+            } finally {
+                if (addBtn) {
+                    addBtn.disabled = false;
+                    addBtn.innerHTML = origBtnHtml || "Add";
+                }
+                if (keyInput) {
+                    keyInput.disabled = false;
+                    keyInput.focus();
+                }
+                renderGeminiKeys();
+            }
         }
 
         async function removeGeminiKey(index) {
             if (!confirm("Remove this API key?")) return;
             const toast = showToast("Removing key...", "syncing", 0);
             try {
+                const removedKey = geminiKeys[index];
+                if (removedKey) {
+                    geminiKeyStatusMap.delete(removedKey);
+                    geminiKeyCooldownMap.delete(removedKey);
+                }
                 const updatedKeys = geminiKeys.filter((_, i) => i !== index);
                 await db.collection('config').doc('geminiKeys').set({ keys: updatedKeys });
                 toast.classList.add('fade-out'); setTimeout(() => toast.remove(), 300);
@@ -5542,53 +5657,24 @@
             if (!key) return;
             const toast = showToast("Testing key...", "syncing", 0);
             try {
-                let data = null;
-
-                // 1. Try server endpoint first (when running with server.ts in AI Studio or Vercel serverless)
-                try {
-                    const res = await fetch("/api/gemini/solve", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            apiKey: key,
-                            contents: [{ parts: [{ text: "ping" }] }]
-                        })
-                    });
-                    if (res.ok) {
-                        const parsed = await res.json().catch(() => null);
-                        if (parsed && typeof parsed === 'object' && (parsed.success || parsed.reason)) {
-                            data = parsed;
-                        }
-                    }
-                } catch {
-                    // Server endpoint unreachable (e.g. static host on Vercel)
-                }
-
-                // 2. Direct client-side test (zero server dependency; works 100% on Vercel free hosting)
-                if (!data) {
-                    data = await callGeminiDirectRest(key, [{ parts: [{ text: "ping" }] }]);
-                }
-
+                const check = await verifyGeminiApiKey(key);
                 toast.remove();
-                if (data.success && data.text) {
-                    geminiKeyStatusMap.set(key, "Valid");
+
+                geminiKeyStatusMap.set(key, check.status);
+                if (check.valid && check.status === "Valid") {
                     geminiKeyCooldownMap.delete(key);
                     showToast("Key verified and working!", "success", 2500);
-                } else if (data.reason === 'quota_exhausted') {
-                    geminiKeyStatusMap.set(key, "Quota Limit (429)");
+                } else if (check.reason === 'quota_exhausted') {
                     geminiKeyCooldownMap.set(key, Date.now() + 60000);
                     showToast("Rate limit / Free tier quota reached (Wait ~1 min)", "warning", 3500);
-                } else if (data.reason === 'permission_denied') {
-                    geminiKeyStatusMap.set(key, "Permission Denied (403)");
+                } else if (check.reason === 'permission_denied') {
                     geminiKeyCooldownMap.set(key, Date.now() + 86400000);
                     showToast("403: No permission (Check Generative Language API in Cloud Console)", "error", 4000);
-                } else if (data.reason === 'invalid_key') {
-                    geminiKeyStatusMap.set(key, "Invalid Key");
+                } else if (check.reason === 'invalid_key') {
                     geminiKeyCooldownMap.set(key, Date.now() + 86400000);
                     showToast("Invalid API Key: Please check your key in Google AI Studio", "error", 4000);
                 } else {
-                    geminiKeyStatusMap.set(key, "Notice");
-                    showToast("Notice: " + (data.message || "Key could not be verified"), "warning", 3500);
+                    showToast("Notice: " + (check.message || "Key could not be verified"), "warning", 3500);
                 }
                 renderGeminiKeys();
             } catch (err) {

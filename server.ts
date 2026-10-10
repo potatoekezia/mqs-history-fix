@@ -72,6 +72,7 @@ async function startServer() {
           const msg = (err && err.message) ? err.message : String(err);
           const is429 = msg.includes('429') || msg.includes('resource_exhausted') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota');
           const is403 = msg.includes('403') || msg.includes('PERMISSION_DENIED') || msg.includes('does not have permission');
+          const isInvalid = msg.includes('API_KEY_INVALID') || msg.includes('API key not valid') || msg.includes('400') || msg.includes('INVALID_ARGUMENT');
 
           if (is429) {
             lastReason = 'quota_exhausted';
@@ -92,24 +93,34 @@ async function startServer() {
             break;
           }
 
+          if (isInvalid) {
+            lastReason = 'invalid_key';
+            break;
+          }
+
           lastReason = 'error';
           break;
         }
       }
 
-      // If all models hit quota or permission denied, respond gracefully with HTTP 200
+      let failureMessage = 'Gemini rate-limited or unavailable.';
+      if (lastReason === 'invalid_key') failureMessage = 'API key is not valid.';
+      else if (lastReason === 'permission_denied') failureMessage = 'Permission denied (403): Generative Language API disabled or restricted in Cloud Console.';
+      else if (lastReason === 'quota_exhausted') failureMessage = 'Gemini rate-limited or free quota reached (429).';
+
+      // Respond gracefully with HTTP 200
       return res.json({
         text: '',
         success: false,
         reason: lastReason,
-        message: 'Gemini rate-limited or unavailable; falling back to local solver.',
+        message: failureMessage,
       });
-    } catch {
+    } catch (err: any) {
       return res.json({
         text: '',
         success: false,
         reason: 'error',
-        message: 'Using local solver fallback.',
+        message: err?.message || 'Using local solver fallback.',
       });
     }
   });
