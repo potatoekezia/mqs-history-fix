@@ -51,7 +51,7 @@ export default async function handler(req: any, res: any) {
 
         if (is429) {
           lastReason = 'quota_exhausted';
-          continue;
+          break;
         }
 
         if (is403) {

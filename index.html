@@ -1847,6 +1847,22 @@
             }
         }
 
+        // Deeply sanitizes data payloads for Firestore by stripping undefined values (which Firestore rejects)
+        function cleanForFirestore(obj) {
+            if (obj === undefined) return null;
+            if (obj === null || typeof obj !== 'object') return obj;
+            if (Array.isArray(obj)) {
+                return obj.map(item => cleanForFirestore(item));
+            }
+            const res = {};
+            for (const [k, v] of Object.entries(obj)) {
+                if (v !== undefined) {
+                    res[k] = cleanForFirestore(v);
+                }
+            }
+            return res;
+        }
+
         // --- State ---
         let activeTab = 'solver';
         let dictionary = [];
@@ -2312,11 +2328,13 @@
                     const ansData = typeof ans === 'string' ? ans : ans.data;
                     const ansHash = typeof ans === 'string' ? '' : (ans.hash || '');
                     
-                    // Deduplicate identical or near-identical variants (hash similarity >= 95%)
+                    // Deduplicate only truly identical variants (hash similarity >= 98% or matching data)
                     const isDup = uniqueAnswers.some(u => {
-                        const uHash = typeof u === 'string' ? '' : (u.hash || '');
+                        const uData = typeof u === 'string' ? u : (u?.data || '');
+                        const uHash = typeof u === 'string' ? '' : (u?.hash || '');
+                        if (ansData && uData && ansData === uData) return true;
                         if (ansHash && uHash) {
-                            return ansHash === uHash || compareHashes(ansHash, uHash) >= 95;
+                            return ansHash === uHash || compareHashes(ansHash, uHash) >= 98;
                         }
                         return false;
                     });
@@ -2327,9 +2345,9 @@
                     }
                 }
 
-                // Cap variants to max 18 most distinct variants per monster
-                if (uniqueAnswers.length > 18) {
-                    uniqueAnswers.length = 18;
+                // Cap variants to max 50 distinct variants per monster
+                if (uniqueAnswers.length > 50) {
+                    uniqueAnswers.length = 50;
                     modified = true;
                 }
 
@@ -2349,7 +2367,20 @@
                         }
                     }
                 }
-                entry.answers = uniqueAnswers;
+                // Normalize all answer variants so no field is ever undefined
+                entry.answers = uniqueAnswers.map(ans => {
+                    const ansData = typeof ans === 'string' ? ans : (ans?.data || '');
+                    const ansHash = typeof ans === 'string' ? '' : (ans?.hash || '');
+                    const pos = (ans && typeof ans === 'object' && ans.position && typeof ans.position === 'object') ? {
+                        type: String(ans.position.type || 'answer'),
+                        index: Number(ans.position.index) || 0
+                    } : null;
+                    return {
+                        data: ansData,
+                        hash: ansHash,
+                        position: pos
+                    };
+                });
             }
 
             return { entry, modified };
@@ -2367,14 +2398,14 @@
                     const { entry: cleanEntry } = await sanitizeMonsterEntry(rawEntry);
                     if (cleanEntry.id) {
                         const docRef = db.collection('dictionary').doc(cleanEntry.id);
-                        await docRef.set({
+                        await docRef.set(cleanForFirestore({
                             name: cleanEntry.name || 'Unnamed Monster',
                             targetImage: cleanEntry.targetImage || '',
                             targetHash: cleanEntry.targetHash || '',
                             targetPosition: cleanEntry.targetPosition || null,
                             answers: cleanEntry.answers || [],
                             timestamp: Date.now()
-                        });
+                        }));
                         repaired++;
                         console.log(`Repaired oversized doc ${cleanEntry.id}: ${beforeLen} -> ${safeStringify(cleanEntry).length} bytes`);
                     }
@@ -2400,14 +2431,14 @@
                         const { entry: cleanEntry } = await sanitizeMonsterEntry(entry);
                         if (db && cleanEntry.id) {
                             const docRef = db.collection('dictionary').doc(cleanEntry.id);
-                            await docRef.set({
+                            await docRef.set(cleanForFirestore({
                                 name: cleanEntry.name || 'Unnamed Monster',
                                 targetImage: cleanEntry.targetImage || '',
                                 targetHash: cleanEntry.targetHash || '',
                                 targetPosition: cleanEntry.targetPosition || null,
                                 answers: cleanEntry.answers || [],
                                 timestamp: Date.now()
-                            });
+                            }));
                             repairedCount++;
                         }
                     }
@@ -5063,7 +5094,7 @@
                                 radius: Number(raw.targetPosition.radius) || 28
                             } : null,
                             answers: Array.isArray(raw.answers) ? raw.answers.map(a => {
-                                if (typeof a === 'string') return { data: a, hash: '' };
+                                if (typeof a === 'string') return { data: a, hash: '', position: null };
                                 if (a && typeof a === 'object') {
                                     return {
                                         data: typeof a.data === 'string' ? a.data : '',
@@ -5071,10 +5102,10 @@
                                         position: (a.position && typeof a.position === 'object') ? {
                                             type: String(a.position.type || 'answer'),
                                             index: Number(a.position.index) || 0
-                                        } : undefined
+                                        } : null
                                     };
                                 }
-                                return { data: '', hash: '' };
+                                return { data: '', hash: '', position: null };
                             }) : [],
                             timestamp: typeof raw.timestamp === 'number' ? raw.timestamp : Date.now()
                         };
@@ -5885,20 +5916,13 @@
                     [PIPELINE START] Threshold: ${threshold}% | Dict Size: ${dictionary.length}
                 </div>`;
 
-                // Pre-compute multi-orientation hashes and color signatures for both targets and answers
-                const targetMultiHashes = [];
-                const targetColors = [];
-                for (let tIdx = 0; tIdx < targets.length; tIdx++) {
-                    targetMultiHashes.push(await computeMultiOrientationPHashes(targets[tIdx].data));
-                    targetColors.push(await computeColorSignature(targets[tIdx].data));
-                }
-
-                const answerMultiHashes = [];
-                const answerColors = [];
-                for (let aIdx = 0; aIdx < answers.length; aIdx++) {
-                    answerMultiHashes.push(await computeMultiOrientationPHashes(answers[aIdx].data));
-                    answerColors.push(await computeColorSignature(answers[aIdx].data));
-                }
+                // Pre-compute multi-orientation hashes and color signatures in parallel for maximum speed
+                const [targetMultiHashes, targetColors, answerMultiHashes, answerColors] = await Promise.all([
+                    Promise.all(targets.map(t => computeMultiOrientationPHashes(t.data))),
+                    Promise.all(targets.map(t => computeColorSignature(t.data))),
+                    Promise.all(answers.map(a => computeMultiOrientationPHashes(a.data))),
+                    Promise.all(answers.map(a => computeColorSignature(a.data)))
+                ]);
 
                 // Cost matrix: target i -> answer j similarity
                 const scoreMatrix = [];
@@ -7327,28 +7351,28 @@ Example: 132`;
                         if (!existingEntry) {
                             const docId = Date.now().toString();
                             await sanitizeMonsterEntry(entry);
-                            await db.collection('dictionary').doc(docId).set({
+                            await db.collection('dictionary').doc(docId).set(cleanForFirestore({
                                 name: entry.name || 'Unnamed Monster',
                                 targetImage: entry.targetImage || '',
                                 targetHash: entry.targetHash || '',
                                 targetPosition: entry.targetPosition || null,
                                 answers: entry.answers || [],
                                 timestamp: Date.now()
-                            });
+                            }));
                             showToast("Entry saved to cloud", "success");
                         } else {
                             const newAnswers = entry.answers.filter(newAns => !existingEntry.answers.some(oldAns => (oldAns.hash || oldAns) === newAns.hash));
                             if (newAnswers.length > 0) {
                                 existingEntry.answers = [...existingEntry.answers, ...newAnswers];
                                 await sanitizeMonsterEntry(existingEntry);
-                                await db.collection('dictionary').doc(existingEntry.id).set({
+                                await db.collection('dictionary').doc(existingEntry.id).set(cleanForFirestore({
                                     name: existingEntry.name || 'Unnamed Monster',
                                     targetImage: existingEntry.targetImage || '',
                                     targetHash: existingEntry.targetHash || '',
                                     targetPosition: existingEntry.targetPosition || null,
                                     answers: existingEntry.answers || [],
                                     timestamp: Date.now()
-                                });
+                                }));
                                 showToast(`Added ${newAnswers.length} variants to cloud`, "success");
                             } else {
                                 showToast("Already in dictionary.", "info");
@@ -7682,7 +7706,7 @@ Example: 132`;
             if (db && entry.id) {
                 const toast = showToast("Removing duplicate variant...", "syncing", 0);
                 try {
-                    await db.collection('dictionary').doc(entry.id).update({ answers: entry.answers, timestamp: Date.now() });
+                    await db.collection('dictionary').doc(entry.id).update(cleanForFirestore({ answers: entry.answers, timestamp: Date.now() }));
                     showToast("Duplicate variant removed", "success");
                 } catch (e) {
                     entry.answers.splice(variantIndex, 0, removed[0]);
@@ -7817,7 +7841,7 @@ Example: 132`;
             if (db && entry.id) {
                 const toast = showToast("Deleting variant...", "syncing", 0);
                 try {
-                    await db.collection('dictionary').doc(entry.id).update({ answers: entry.answers, timestamp: Date.now() });
+                    await db.collection('dictionary').doc(entry.id).update(cleanForFirestore({ answers: entry.answers, timestamp: Date.now() }));
                     showToast("Variant deleted", "success");
                 } catch (e) {
                     entry.answers.splice(variantIndex, 0, variantToDelete);
@@ -8009,7 +8033,7 @@ Example: 132`;
                                     }
                                     if (db && entryToSync) {
                                         try {
-                                            await db.collection('dictionary').doc(entryToSync.id).set({ name: entryToSync.name, targetImage: entryToSync.targetImage, targetHash: entryToSync.targetHash, targetPosition: entryToSync.targetPosition || null, answers: entryToSync.answers, timestamp: Date.now() }, { merge: true });
+                                            await db.collection('dictionary').doc(entryToSync.id).set(cleanForFirestore({ name: entryToSync.name, targetImage: entryToSync.targetImage, targetHash: entryToSync.targetHash, targetPosition: entryToSync.targetPosition || null, answers: entryToSync.answers, timestamp: Date.now() }), { merge: true });
                                         } catch (fe) { console.error("Firebase sync error during import:", fe); }
                                     }
                                 }
@@ -8274,25 +8298,15 @@ Example: 132`;
         function isVariantInDictionary(ansHash, targetMonsterId = null) {
             if (!ansHash || !dictionary || dictionary.length === 0) return false;
 
-            // 1. Check if the matched monster already has this variant sprite
+            // Only check if THIS matched monster already has this exact or near-identical variant sprite (>= 98%)
             if (targetMonsterId) {
                 const monster = dictionary.find(m => m.id === targetMonsterId);
                 if (monster && monster.answers && monster.answers.length > 0) {
                     for (let v of monster.answers) {
                         const vHash = typeof v === 'string' ? '' : (v.hash || '');
                         if (vHash) {
-                            if (vHash === ansHash || compareHashes(vHash, ansHash) >= 92) return true;
+                            if (vHash === ansHash || compareHashes(vHash, ansHash) >= 98) return true;
                         }
-                    }
-                }
-            }
-
-            // 2. Check across entire dictionary for identical variant hash
-            for (let m of dictionary) {
-                if (m.answers && m.answers.length > 0) {
-                    for (let v of m.answers) {
-                        const vHash = typeof v === 'string' ? '' : (v.hash || '');
-                        if (vHash && (vHash === ansHash || compareHashes(vHash, ansHash) >= 94)) return true;
                     }
                 }
             }
@@ -8609,7 +8623,7 @@ Example: 132`;
                             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                             Edit Match
                         </button>
-                        <button type="button" class="btn" style="flex:1.2; margin:0; padding:10px; font-size:13px; font-weight:700; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; box-shadow:0 4px 14px rgba(16,185,129,0.35); display:flex; align-items:center; justify-content:center; gap:6px;" onclick="batchConfirmCurrent(${currentIndex})">
+                        <button id="batch-confirm-btn" type="button" class="btn" style="flex:1.2; margin:0; padding:10px; font-size:13px; font-weight:700; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; box-shadow:0 4px 14px rgba(16,185,129,0.35); display:flex; align-items:center; justify-content:center; gap:6px;" onclick="batchConfirmCurrent(${currentIndex})">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                             Confirm
                         </button>
@@ -8640,14 +8654,26 @@ Example: 132`;
             }, 2500);
         }
 
+        let isBatchSaving = false;
+
         async function batchConfirmCurrent(index) {
-            const item = batchQueue[index];
+            if (isBatchSaving) return;
+            const item = batchQueue[index] || batchQueue[0];
             if (!item) return;
+
+            isBatchSaving = true;
+            const confirmBtn = document.getElementById('batch-confirm-btn');
+            const origConfirmHtml = confirmBtn ? confirmBtn.innerHTML : '';
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = `<span style="display:inline-block; width:12px; height:12px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite; vertical-align:middle; margin-right:4px"></span> Saving...`;
+            }
 
             // Commit all matched & confirmed answer variants using an atomic batch to protect DB quota
             let savedCount = 0;
             let skippedExistingCount = 0;
             const toast = showToast("Saving variants...", "syncing", 0);
+            const backupAnswersMap = new Map();
 
             try {
                 const monsterUpdates = new Map();
@@ -8658,15 +8684,17 @@ Example: 132`;
                     const monsterEntry = dictionary.find(m => m.id === targetMonsterId);
                     if (!monsterEntry) continue;
 
-                    // Strictly check if variant is ALREADY present in this monster's dictionary entry
+                    // Strictly check if variant is ALREADY present in this monster's dictionary entry (exact match or >= 98% pHash)
                     const isAlreadyPresent = (monsterEntry.answers || []).some(existing => {
                         const h = typeof existing === 'string' ? '' : (existing.hash || '');
-                        return h && (h === ans.hash || compareHashes(h, ans.hash) >= 92);
+                        const d = typeof existing === 'string' ? existing : (existing.data || '');
+                        if (d && ans.data && d === ans.data) return true;
+                        return h && ans.hash && (h === ans.hash || compareHashes(h, ans.hash) >= 98);
                     });
 
                     if (isAlreadyPresent) {
                         skippedExistingCount++;
-                        continue; // Strictly only add the ones that haven't been in the dictionary!
+                        continue;
                     }
 
                     if (!monsterUpdates.has(targetMonsterId)) {
@@ -8676,16 +8704,17 @@ Example: 132`;
                         });
                     }
                     monsterUpdates.get(targetMonsterId).newVariants.push({
-                        data: ans.data,
-                        hash: ans.hash,
-                        position: { type: 'answer', index: ans.index }
+                        data: ans.data || '',
+                        hash: ans.hash || '',
+                        position: (ans.index !== undefined && ans.index !== null) ? { type: 'answer', index: Number(ans.index) || 0 } : null
                     });
                     savedCount++;
                 }
 
                 if (monsterUpdates.size > 0) {
-                    // Sanitize, compress and deduplicate every monster entry before writing to cloud
+                    // Backup in-memory answers before modifying so rollback is possible if commit fails
                     for (let [mId, { entry, newVariants }] of monsterUpdates.entries()) {
+                        backupAnswersMap.set(mId, [...(entry.answers || [])]);
                         entry.answers = [...(entry.answers || []), ...newVariants];
                         await sanitizeMonsterEntry(entry);
                     }
@@ -8694,15 +8723,14 @@ Example: 132`;
                         const batch = db.batch();
                         for (let [mId, { entry }] of monsterUpdates.entries()) {
                             const docRef = db.collection('dictionary').doc(mId);
-                            // Completely replaces legacy bloated documents with compressed 30KB clean document
-                            batch.set(docRef, {
+                            batch.set(docRef, cleanForFirestore({
                                 name: entry.name || 'Unnamed Monster',
                                 targetImage: entry.targetImage || '',
                                 targetHash: entry.targetHash || '',
                                 targetPosition: entry.targetPosition || null,
                                 answers: entry.answers || [],
                                 timestamp: Date.now()
-                            });
+                            }));
                         }
                         await batch.commit();
                     } else {
@@ -8732,8 +8760,14 @@ Example: 132`;
                     scheduleAuditSync();
                 }
 
-                // Remove from stack (pop)
-                batchQueue.splice(index, 1);
+                // Remove from stack safely by item reference
+                const realIdx = batchQueue.indexOf(item);
+                if (realIdx !== -1) {
+                    batchQueue.splice(realIdx, 1);
+                } else {
+                    batchQueue.splice(index, 1);
+                }
+
                 saveBatchQueueToStorage();
                 renderBatchCards();
                 renderDictionary();
@@ -8746,9 +8780,19 @@ Example: 132`;
 
             } catch (err) {
                 console.error("Batch confirm current error:", err);
+                // Roll back in-memory answers on failure so next attempt doesn't think they are already saved
+                for (let [mId, origAnswers] of backupAnswersMap.entries()) {
+                    const m = dictionary.find(e => e.id === mId);
+                    if (m) m.answers = origAnswers;
+                }
                 showToast("Failed to save: " + err.message, "error");
             } finally {
                 toast.remove();
+                isBatchSaving = false;
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = origConfirmHtml || 'Confirm';
+                }
             }
         }
 

@@ -76,8 +76,7 @@ async function startServer() {
 
           if (is429) {
             lastReason = 'quota_exhausted';
-            // Try next model in list
-            continue;
+            break;
           }
 
           if (is403) {
